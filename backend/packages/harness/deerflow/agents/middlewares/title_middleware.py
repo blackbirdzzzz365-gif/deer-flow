@@ -1,10 +1,11 @@
 """Middleware for automatic thread title generation."""
 
 import logging
-from typing import NotRequired, override
+from typing import Any, NotRequired, override
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
+from langgraph.config import get_config
 from langgraph.runtime import Runtime
 
 from deerflow.config.title_config import get_title_config
@@ -100,6 +101,20 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
             return user_msg[:fallback_chars].rstrip() + "..."
         return user_msg if user_msg else "New Conversation"
 
+    def _get_runnable_config(self) -> dict[str, Any]:
+        """Inherit the parent RunnableConfig and add middleware tag.
+
+        This ensures RunJournal identifies LLM calls from this middleware
+        as ``middleware:title`` instead of ``lead_agent``.
+        """
+        try:
+            parent = get_config()
+        except Exception:
+            parent = {}
+        config = {**parent}
+        config["tags"] = [*(config.get("tags") or []), "middleware:title"]
+        return config
+
     def _generate_title_result(self, state: TitleMiddlewareState) -> dict | None:
         """Synchronously generate a title. Returns state update or None."""
         if not self._should_generate_title(state):
@@ -110,7 +125,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         model = create_chat_model(name=config.model_name, thinking_enabled=False)
 
         try:
-            response = model.invoke(prompt)
+            response = model.invoke(prompt, config=self._get_runnable_config())
             title = self._parse_title(response.content)
             if not title:
                 title = self._fallback_title(user_msg)
@@ -130,7 +145,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         model = create_chat_model(name=config.model_name, thinking_enabled=False)
 
         try:
-            response = await model.ainvoke(prompt)
+            response = await model.ainvoke(prompt, config=self._get_runnable_config())
             title = self._parse_title(response.content)
             if not title:
                 title = self._fallback_title(user_msg)

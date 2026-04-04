@@ -67,9 +67,9 @@ async def run_agent(
             track_token_usage=getattr(run_events_config, "track_token_usage", True),
         )
 
-        # Write human_message event
-        user_input = _extract_user_input(graph_input)
-        if user_input:
+        # Write human_message event (model_dump format, aligned with checkpoint)
+        human_msg = _extract_human_message(graph_input)
+        if human_msg is not None:
             msg_metadata = {}
             if follow_up_to_run_id:
                 msg_metadata["follow_up_to_run_id"] = follow_up_to_run_id
@@ -78,10 +78,11 @@ async def run_agent(
                 run_id=run_id,
                 event_type="human_message",
                 category="message",
-                content={"role": "user", "content": user_input},
+                content=human_msg.model_dump(),
                 metadata=msg_metadata or None,
             )
-            journal.set_first_human_message(user_input)
+            content = human_msg.content
+            journal.set_first_human_message(content if isinstance(content, str) else str(content))
 
     # Track whether "events" was requested but skipped
     if "events" in requested_modes:
@@ -282,21 +283,29 @@ def _lg_mode_to_sse_event(mode: str) -> str:
     return mode
 
 
-def _extract_user_input(graph_input: dict) -> str:
-    """Extract user input text from graph_input for event recording."""
+def _extract_human_message(graph_input: dict) -> "HumanMessage | None":
+    """Extract or construct a HumanMessage from graph_input for event recording.
+
+    Returns a LangChain HumanMessage so callers can use .model_dump() to get
+    the checkpoint-aligned serialization format.
+    """
+    from langchain_core.messages import HumanMessage
+
     messages = graph_input.get("messages")
     if not messages:
-        return ""
-    # Take the last message (usually the user's input)
+        return None
     last = messages[-1] if isinstance(messages, list) else messages
-    if isinstance(last, str):
+    if isinstance(last, HumanMessage):
         return last
+    if isinstance(last, str):
+        return HumanMessage(content=last) if last else None
     if hasattr(last, "content"):
         content = last.content
-        return content if isinstance(content, str) else str(content)
+        return HumanMessage(content=content)
     if isinstance(last, dict):
-        return str(last.get("content", ""))
-    return ""
+        content = last.get("content", "")
+        return HumanMessage(content=content) if content else None
+    return None
 
 
 def _unpack_stream_item(

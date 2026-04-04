@@ -179,7 +179,8 @@ class RunJournal(BaseCallbackHandler):
             },
         )
 
-        # Message events: only lead_agent gets message-category events
+        # Message events: only lead_agent gets message-category events.
+        # Content uses message.model_dump() to align with checkpoint format.
         tool_calls = getattr(message, "tool_calls", None) or []
         if caller == "lead_agent":
             resp_meta = getattr(message, "response_metadata", None) or {}
@@ -189,7 +190,7 @@ class RunJournal(BaseCallbackHandler):
                 self._put(
                     event_type="ai_tool_call",
                     category="message",
-                    content=langchain_to_openai_message(message),
+                    content=message.model_dump(),
                     metadata={"model_name": model_name, "finish_reason": "tool_calls"},
                 )
             elif isinstance(content, str) and content:
@@ -197,10 +198,10 @@ class RunJournal(BaseCallbackHandler):
                 self._put(
                     event_type="ai_message",
                     category="message",
-                    content={"role": "assistant", "content": content},
+                    content=message.model_dump(),
                     metadata={"model_name": model_name, "finish_reason": "stop"},
                 )
-                self._last_ai_msg = content[:2000]
+                self._last_ai_msg = content
                 self._msg_count += 1
 
         # Token accumulation
@@ -242,43 +243,85 @@ class RunJournal(BaseCallbackHandler):
             },
         )
 
-    def on_tool_end(self, output: str, *, run_id: UUID, **kwargs: Any) -> None:
-        tool_call_id = kwargs.get("tool_call_id") or self._tool_call_ids.pop(str(run_id), None)
-        tool_name = kwargs.get("name", "")
+    def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any) -> None:
+        from langchain_core.messages import ToolMessage
+
+        # Extract fields from ToolMessage object when LangChain provides one.
+        # LangChain's _format_output wraps tool results into a ToolMessage
+        # with tool_call_id, name, status, and artifact — more complete than
+        # what kwargs alone provides.
+        if isinstance(output, ToolMessage):
+            tool_call_id = output.tool_call_id or kwargs.get("tool_call_id") or self._tool_call_ids.pop(str(run_id), None)
+            tool_name = output.name or kwargs.get("name", "")
+            status = getattr(output, "status", "success") or "success"
+            content_str = output.content if isinstance(output.content, str) else str(output.content)
+            # Use model_dump() for checkpoint-aligned message content.
+            # Override tool_call_id if it was resolved from cache.
+            msg_content = output.model_dump()
+            if msg_content.get("tool_call_id") != tool_call_id:
+                msg_content["tool_call_id"] = tool_call_id
+        else:
+            tool_call_id = kwargs.get("tool_call_id") or self._tool_call_ids.pop(str(run_id), None)
+            tool_name = kwargs.get("name", "")
+            status = "success"
+            content_str = str(output)
+            # Construct checkpoint-aligned dict when output is a plain string.
+            msg_content = ToolMessage(
+                content=content_str,
+                tool_call_id=tool_call_id or "",
+                name=tool_name,
+                status=status,
+            ).model_dump()
 
         # Trace event (always)
         self._put(
             event_type="tool_end",
             category="trace",
-            content=str(output),
+            content=content_str,
             metadata={
                 "tool_name": tool_name,
                 "tool_call_id": tool_call_id,
-                "status": "success",
+                "status": status,
             },
         )
 
-        # Message event: tool_result
+        # Message event: tool_result (checkpoint-aligned model_dump format)
         self._put(
             event_type="tool_result",
             category="message",
-            content={
-                "role": "tool",
-                "tool_call_id": tool_call_id or "",
-                "content": str(output),
-            },
-            metadata={"tool_name": tool_name},
+            content=msg_content,
+            metadata={"tool_name": tool_name, "status": status},
         )
 
     def on_tool_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        from langchain_core.messages import ToolMessage
+
+        tool_call_id = kwargs.get("tool_call_id") or self._tool_call_ids.pop(str(run_id), None)
+        tool_name = kwargs.get("name", "")
+
+        # Trace event
         self._put(
             event_type="tool_error",
             category="trace",
             content=str(error),
             metadata={
-                "tool_name": kwargs.get("name", ""),
-                "tool_call_id": kwargs.get("tool_call_id"),
+                "tool_name": tool_name,
+                "tool_call_id": tool_call_id,
             },
+        )
+
+        # Message event: tool_result with error status (checkpoint-aligned)
+        msg_content = ToolMessage(
+            content=str(error),
+            tool_call_id=tool_call_id or "",
+            name=tool_name,
+            status="error",
+        ).model_dump()
+        self._put(
+            event_type="tool_result",
+            category="message",
+            content=msg_content,
+            metadata={"tool_name": tool_name, "status": "error"},
         )
 
     # -- Custom event callback --
@@ -298,8 +341,8 @@ class RunJournal(BaseCallbackHandler):
                 },
             )
             self._put(
-                event_type="summary",
-                category="message",
+                event_type="middleware:summarize",
+                category="middleware",
                 content={"role": "system", "content": data_dict.get("summary", "")},
                 metadata={"replaced_count": data_dict.get("replaced_count", 0)},
             )
@@ -366,16 +409,24 @@ class RunJournal(BaseCallbackHandler):
         """Record the first human message for convenience fields."""
         self._first_human_msg = content[:2000] if content else None
 
-    def record_middleware(self, name: str, hook: str, action: str, changes: dict) -> None:
-        """Record a middleware trace event.
+    def record_middleware(self, tag: str, *, name: str, hook: str, action: str, changes: dict) -> None:
+        """Record a middleware state-change event.
 
         Called by middleware implementations when they perform a meaningful
         state change (e.g., title generation, summarization, HITL approval).
         Pure-observation middleware should not call this.
+
+        Args:
+            tag: Short identifier for the middleware (e.g., "title", "summarize",
+                 "guardrail"). Used to form event_type="middleware:{tag}".
+            name: Full middleware class name.
+            hook: Lifecycle hook that triggered the action (e.g., "after_model").
+            action: Specific action performed (e.g., "generate_title").
+            changes: Dict describing the state changes made.
         """
         self._put(
-            event_type="middleware",
-            category="trace",
+            event_type=f"middleware:{tag}",
+            category="middleware",
             content={"name": name, "hook": hook, "action": action, "changes": changes},
         )
 
