@@ -57,7 +57,7 @@ class TestLlmCallbacks:
         j.on_llm_end(_make_llm_response("Hi"), run_id=run_id, tags=["lead_agent"])
         await j.flush()
         events = await store.list_events("t1", "r1")
-        trace_events = [e for e in events if e["event_type"] == "llm_end"]
+        trace_events = [e for e in events if e["event_type"] == "llm_response"]
         assert len(trace_events) == 1
         assert trace_events[0]["category"] == "trace"
 
@@ -147,9 +147,9 @@ class TestLlmCallbacks:
         j.on_llm_end(_make_llm_response("Fast"), run_id=run_id, tags=["lead_agent"])
         await j.flush()
         events = await store.list_events("t1", "r1")
-        llm_end = [e for e in events if e["event_type"] == "llm_end"][0]
-        assert "latency_ms" in llm_end["metadata"]
-        assert llm_end["metadata"]["latency_ms"] is not None
+        llm_resp = [e for e in events if e["event_type"] == "llm_response"][0]
+        assert "latency_ms" in llm_resp["metadata"]
+        assert llm_resp["metadata"]["latency_ms"] is not None
 
 
 class TestLifecycleCallbacks:
@@ -252,14 +252,14 @@ class TestBufferFlush:
 
         asyncio.get_running_loop = no_loop
         try:
-            j._put(event_type="llm_end", category="trace", content="test")
+            j._put(event_type="llm_response", category="trace", content="test")
         finally:
             asyncio.get_running_loop = original
 
         assert len(j._buffer) == 1
         await j.flush()
         events = await store.list_events("t1", "r1")
-        assert any(e["event_type"] == "llm_end" for e in events)
+        assert any(e["event_type"] == "llm_response" for e in events)
 
 
 class TestIdentifyCaller:
@@ -417,7 +417,7 @@ class TestDbBackedLifecycle:
         events = await event_store.list_events("t1", run_id)
         event_types = {e["event_type"] for e in events}
         assert "run_start" in event_types
-        assert "llm_end" in event_types
+        assert "llm_response" in event_types
         assert "run_end" in event_types
 
         await close_engine()
@@ -661,3 +661,85 @@ class TestToolResultMessage:
         await j.flush()
         messages = await store.list_messages("t1")
         assert len(messages) == 0
+
+
+def _make_base_messages():
+    """Create mock LangChain BaseMessages for on_chat_model_start."""
+    sys_msg = MagicMock()
+    sys_msg.content = "You are helpful."
+    sys_msg.type = "system"
+    sys_msg.tool_calls = []
+    sys_msg.tool_call_id = None
+
+    user_msg = MagicMock()
+    user_msg.content = "Hello"
+    user_msg.type = "human"
+    user_msg.tool_calls = []
+    user_msg.tool_call_id = None
+
+    return [sys_msg, user_msg]
+
+
+class TestLlmRequestResponse:
+    @pytest.mark.anyio
+    async def test_llm_request_event(self, journal_setup):
+        j, store = journal_setup
+        run_id = uuid4()
+        messages = _make_base_messages()
+        j.on_chat_model_start({"name": "gpt-4o"}, [messages], run_id=run_id, tags=["lead_agent"])
+        await j.flush()
+        events = await store.list_events("t1", "r1")
+        req_events = [e for e in events if e["event_type"] == "llm_request"]
+        assert len(req_events) == 1
+        content = req_events[0]["content"]
+        assert content["model"] == "gpt-4o"
+        assert len(content["messages"]) == 2
+        assert content["messages"][0]["role"] == "system"
+        assert content["messages"][1]["role"] == "user"
+
+    @pytest.mark.anyio
+    async def test_llm_response_event(self, journal_setup):
+        j, store = journal_setup
+        run_id = uuid4()
+        j.on_llm_start({}, [], run_id=run_id, tags=["lead_agent"])
+        j.on_llm_end(
+            _make_llm_response("Answer", usage={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}),
+            run_id=run_id,
+            tags=["lead_agent"],
+        )
+        await j.flush()
+        events = await store.list_events("t1", "r1")
+        assert not any(e["event_type"] == "llm_end" for e in events)
+        resp_events = [e for e in events if e["event_type"] == "llm_response"]
+        assert len(resp_events) == 1
+        content = resp_events[0]["content"]
+        assert "choices" in content
+        assert content["choices"][0]["message"]["role"] == "assistant"
+        assert content["choices"][0]["message"]["content"] == "Answer"
+        assert content["usage"]["prompt_tokens"] == 10
+
+    @pytest.mark.anyio
+    async def test_llm_request_response_paired(self, journal_setup):
+        j, store = journal_setup
+        run_id = uuid4()
+        messages = _make_base_messages()
+        j.on_chat_model_start({"name": "gpt-4o"}, [messages], run_id=run_id, tags=["lead_agent"])
+        j.on_llm_end(
+            _make_llm_response("Hi", usage={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}),
+            run_id=run_id,
+            tags=["lead_agent"],
+        )
+        await j.flush()
+        events = await store.list_events("t1", "r1")
+        req = [e for e in events if e["event_type"] == "llm_request"][0]
+        resp = [e for e in events if e["event_type"] == "llm_response"][0]
+        assert req["metadata"]["llm_call_index"] == resp["metadata"]["llm_call_index"]
+
+    @pytest.mark.anyio
+    async def test_no_llm_start_event(self, journal_setup):
+        j, store = journal_setup
+        run_id = uuid4()
+        j.on_llm_start({"name": "test"}, [], run_id=run_id, tags=["lead_agent"])
+        await j.flush()
+        events = await store.list_events("t1", "r1")
+        assert not any(e["event_type"] == "llm_start" for e in events)
