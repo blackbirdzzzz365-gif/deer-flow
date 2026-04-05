@@ -30,10 +30,12 @@ class RunStore(abc.ABC):
         error: str | None = None,
         created_at: str | None = None,
         follow_up_to_run_id: str | None = None,
-    ) -> None: ...
+    ) -> None:
+        pass
 
     @abc.abstractmethod
-    async def get(self, run_id: str) -> dict[str, Any] | None: ...
+    async def get(self, run_id: str) -> dict[str, Any] | None:
+        pass
 
     @abc.abstractmethod
     async def list_by_thread(
@@ -42,7 +44,8 @@ class RunStore(abc.ABC):
         *,
         owner_id: str | None = None,
         limit: int = 100,
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        pass
 
     @abc.abstractmethod
     async def update_status(
@@ -51,10 +54,12 @@ class RunStore(abc.ABC):
         status: str,
         *,
         error: str | None = None,
-    ) -> None: ...
+    ) -> None:
+        pass
 
     @abc.abstractmethod
-    async def delete(self, run_id: str) -> None: ...
+    async def delete(self, run_id: str) -> None:
+        pass
 
     @abc.abstractmethod
     async def update_run_completion(
@@ -73,7 +78,9 @@ class RunStore(abc.ABC):
         last_ai_message: str | None = None,
         first_human_message: str | None = None,
         error: str | None = None,
-    ) -> None: ...
+    ) -> None:
+        pass
 
     @abc.abstractmethod
-    async def list_pending(self, *, before: str | None = None) -> list[dict[str, Any]]: ...
+    async def list_pending(self, *, before: str | None = None) -> list[dict[str, Any]]:
+        pass
