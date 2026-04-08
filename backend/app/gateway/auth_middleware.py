@@ -1,6 +1,11 @@
 """Global authentication middleware — fail-closed safety net.
 
-Rejects unauthenticated requests to non-public paths with 401.
+Rejects unauthenticated requests to non-public paths with 401. When a
+request passes the cookie check, resolves the JWT payload to a real
+``User`` object and stamps it into both ``request.state.user`` and the
+``deerflow.runtime.user_context`` contextvar so that repository-layer
+owner filtering works automatically via the sentinel pattern.
+
 Fine-grained permission checks remain in authz.py decorators.
 """
 
@@ -12,6 +17,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 from app.gateway.auth.errors import AuthErrorCode
+from deerflow.runtime.user_context import reset_current_user, set_current_user
 
 # Paths that never require authentication.
 _PUBLIC_PATH_PREFIXES: tuple[str, ...] = (
@@ -68,4 +74,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        return await call_next(request)
+        # Resolve the full user now so repository-layer owner filters
+        # can read from the contextvar. We use the "optional" flavour so
+        # middleware never raises on bad tokens — the cookie-presence
+        # check above plus the @require_auth decorator provide the
+        # strict gates. A stale/invalid token yields user=None here;
+        # the request continues without a contextvar, and any protected
+        # endpoint will still be rejected by @require_auth.
+        from app.gateway.deps import get_optional_user_from_request
+
+        user = await get_optional_user_from_request(request)
+        if user is None:
+            return await call_next(request)
+
+        request.state.user = user
+        token = set_current_user(user)
+        try:
+            return await call_next(request)
+        finally:
+            reset_current_user(token)

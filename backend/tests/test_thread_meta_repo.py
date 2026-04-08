@@ -104,7 +104,9 @@ class TestThreadMetaRepository:
     @pytest.mark.anyio
     async def test_check_access_no_owner_allows_all(self, tmp_path):
         repo = await _make_repo(tmp_path)
-        await repo.create("t1")  # owner_id=None
+        # Explicit owner_id=None to bypass the new AUTO default that
+        # would otherwise pick up the test user from the autouse fixture.
+        await repo.create("t1", owner_id=None)
         assert await repo.check_access("t1", "anyone") is True
         await _cleanup()
 

@@ -30,6 +30,11 @@ postgres = [
 [dependency-groups]
 dev = ["pytest>=8.0.0", "ruff>=0.14.11"]
 
+[tool.pytest.ini_options]
+markers = [
+    "no_auto_user: disable the conftest autouse contextvar fixture for this test",
+]
+
 [tool.uv.workspace]
 members = ["packages/harness"]
 

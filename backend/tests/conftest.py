@@ -6,7 +6,10 @@ issues when unit-testing lightweight config/registry code in isolation.
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+import pytest
 
 # Make 'app' and 'deerflow' importable from any working directory
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -31,3 +34,44 @@ _executor_mock.MAX_CONCURRENT_SUBAGENTS = 3
 _executor_mock.get_background_task_result = MagicMock()
 
 sys.modules["deerflow.subagents.executor"] = _executor_mock
+
+
+# ---------------------------------------------------------------------------
+# Auto-set user context for every test unless marked no_auto_user
+# ---------------------------------------------------------------------------
+#
+# Repository methods read ``owner_id`` from a contextvar by default
+# (see ``deerflow.runtime.user_context``). Without this fixture, every
+# pre-existing persistence test would raise RuntimeError because the
+# contextvar is unset. The fixture sets a default test user on every
+# test; tests that explicitly want to verify behaviour *without* a user
+# context should mark themselves ``@pytest.mark.no_auto_user``.
+
+
+@pytest.fixture(autouse=True)
+def _auto_user_context(request):
+    """Inject a default ``test-user-autouse`` into the contextvar.
+
+    Opt-out via ``@pytest.mark.no_auto_user``. Uses lazy import so that
+    tests which don't touch the persistence layer never pay the cost
+    of importing runtime.user_context.
+    """
+    if request.node.get_closest_marker("no_auto_user"):
+        yield
+        return
+
+    try:
+        from deerflow.runtime.user_context import (
+            reset_current_user,
+            set_current_user,
+        )
+    except ImportError:
+        yield
+        return
+
+    user = SimpleNamespace(id="test-user-autouse", email="test@local")
+    token = set_current_user(user)
+    try:
+        yield
+    finally:
+        reset_current_user(token)
