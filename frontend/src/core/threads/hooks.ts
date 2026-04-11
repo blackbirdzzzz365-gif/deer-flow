@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 import { getAPIClient } from "../api";
+import type { FeedbackData } from "../api/feedback";
 import { fetchWithAuth } from "../api/fetcher";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
@@ -294,7 +295,9 @@ export function useThreadStream({
     onFinish(state) {
       listeners.current.onFinish?.(state.values);
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
-      void queryClient.invalidateQueries({ queryKey: ["thread-feedback"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["thread-message-enrichment"],
+      });
     },
   });
 
@@ -680,52 +683,62 @@ export function useRenameThread() {
   });
 }
 
-export interface ThreadFeedbackData {
-  /** Maps AI message ordinal index (0-based, counting only AI messages) to run_id */
-  runIdByAiIndex: string[];
-  /** Maps run_id to feedback data */
-  feedbackByRunId: Record<
-    string,
-    { feedback_id: string; rating: number; comment: string | null }
-  >;
+/** Per-message enrichment data attached by the backend ``/history`` helper. */
+export interface MessageEnrichment {
+  run_id: string;
+  /** ``undefined`` = not feedback-eligible; ``null`` = eligible but unrated. */
+  feedback?: FeedbackData | null;
 }
 
-export function useThreadFeedback(threadId: string | null | undefined) {
+/**
+ * Fetch ``/history`` once and index feedback + run_id by message id.
+ *
+ * Replaces the old ``useThreadFeedback`` hook which keyed by AI-message
+ * ordinal position — an inherently fragile mapping that broke whenever
+ * ``ai_tool_call`` messages were interleaved with ``ai_message`` messages.
+ * Keying by ``message.id`` is stable regardless of run count, tool-call
+ * chains, or summarization.
+ *
+ * The ``/history`` response is refreshed on every stream completion via
+ * ``invalidateQueries(["thread-message-enrichment"])`` in ``onFinish``.
+ */
+export function useThreadMessageEnrichment(
+  threadId: string | null | undefined,
+) {
   return useQuery({
-    queryKey: ["thread-feedback", threadId],
-    queryFn: async (): Promise<ThreadFeedbackData> => {
-      const empty: ThreadFeedbackData = {
-        runIdByAiIndex: [],
-        feedbackByRunId: {},
-      };
+    queryKey: ["thread-message-enrichment", threadId],
+    queryFn: async (): Promise<Map<string, MessageEnrichment>> => {
+      const empty = new Map<string, MessageEnrichment>();
       if (!threadId) return empty;
       const res = await fetchWithAuth(
-        `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/messages?limit=200`,
+        `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/history`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ limit: 1 }),
+        },
       );
       if (!res.ok) return empty;
-      const messages: Array<{
-        run_id: string;
-        event_type: string;
-        feedback?: {
-          feedback_id: string;
-          rating: number;
-          comment: string | null;
-        } | null;
-      }> = await res.json();
-      const runIdByAiIndex: string[] = [];
-      const feedbackByRunId: Record<
-        string,
-        { feedback_id: string; rating: number; comment: string | null }
-      > = {};
-      for (const msg of messages) {
-        if (msg.event_type === "ai_message") {
-          runIdByAiIndex.push(msg.run_id);
-        }
-        if (msg.feedback && msg.run_id) {
-          feedbackByRunId[msg.run_id] = msg.feedback;
-        }
+      const entries = (await res.json()) as Array<{
+        values?: {
+          messages?: Array<{
+            id?: string;
+            run_id?: string;
+            feedback?: FeedbackData | null;
+          }>;
+        };
+      }>;
+      const messages = entries[0]?.values?.messages ?? [];
+      const map = new Map<string, MessageEnrichment>();
+      for (const m of messages) {
+        if (!m.id || !m.run_id) continue;
+        const entry: MessageEnrichment = { run_id: m.run_id };
+        // Preserve presence: "feedback" key absent → ineligible; present with
+        // null → eligible but unrated; present with object → rated.
+        if ("feedback" in m) entry.feedback = m.feedback;
+        map.set(m.id, entry);
       }
-      return { runIdByAiIndex, feedbackByRunId };
+      return map;
     },
     enabled: !!threadId,
     staleTime: 30_000,
