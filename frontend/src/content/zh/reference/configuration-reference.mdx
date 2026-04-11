@@ -44,8 +44,11 @@ models:
     base_url: null                  # 可选：自定义端点
     request_timeout: 600.0         # 请求超时（秒）
     max_retries: 2                  # 重试次数
-    supports_vision: true           # 是否启用视觉功能
-    thinking_enabled: false         # 是否启用扩展思考
+    supports_vision: true           # 模型是否接受图像输入
+    supports_thinking: false        # 模型是否支持扩展思考
+    # thinking: {}                  # 可选思考配置（思考激活时传入）
+    # when_thinking_enabled: {}     # 思考启用时的可选覆盖设置
+    # when_thinking_disabled: {}    # 思考禁用时的可选覆盖设置
     # 任何其他字段都会传递给模型构造函数
 ```
 

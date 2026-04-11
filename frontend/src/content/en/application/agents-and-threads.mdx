@@ -106,10 +106,10 @@ checkpointer:
 ```
 
 <Callout type="info">
-  The LangGraph Server manages its own state separately. The
-  <code>checkpointer</code> setting in <code>config.yaml</code> applies to the
-  embedded <code>DeerFlowClient</code> (used in direct Python integrations), not
-  to the LangGraph Server deployment used by DeerFlow App.
+  DeerFlow App uses the <code>checkpointer</code> setting in <code>config.yaml</code> to
+  persist thread state through the Gateway runtime (via <code>make_checkpointer()</code> in
+  <code>deerflow.agents.checkpointer.async_provider</code>). Configure this section if you
+  want threads to survive process restarts.
 </Callout>
 
 ### Thread data storage

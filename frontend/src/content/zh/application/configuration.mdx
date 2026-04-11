@@ -23,19 +23,13 @@ models:
     request_timeout: 600.0
     max_retries: 2
     supports_vision: true
-    thinking_enabled: false
-```
-  </Tabs.Tab>
-  <Tabs.Tab>
-```yaml
-models:
-  - name: claude-sonnet
+    supports_thinking: false
     use: langchain_anthropic:ChatAnthropic
     model: claude-sonnet-4-5
     api_key: $ANTHROPIC_API_KEY
     max_tokens: 16000
     supports_vision: true
-    thinking_enabled: false
+    supports_thinking: false
 ```
 
 启用扩展思考：
@@ -46,11 +40,10 @@ models:
     model: claude-sonnet-4-5
     api_key: $ANTHROPIC_API_KEY
     max_tokens: 16000
-    thinking_enabled: true
-    extra_body:
-      thinking:
-        type: enabled
-        budget_tokens: 10000
+    supports_thinking: true
+    thinking:
+      type: enabled
+      budget_tokens: 10000
 ```
   </Tabs.Tab>
   <Tabs.Tab>
@@ -63,7 +56,7 @@ models:
     request_timeout: 600.0
     max_retries: 2
     supports_vision: true
-    thinking_enabled: false
+    supports_thinking: false
 ```
   </Tabs.Tab>
   <Tabs.Tab>
@@ -77,7 +70,7 @@ models:
     request_timeout: 600.0
     max_retries: 2
     supports_vision: false
-    thinking_enabled: true
+    supports_thinking: true
 ```
   </Tabs.Tab>
   <Tabs.Tab>
@@ -90,7 +83,7 @@ models:
     request_timeout: 600.0
     max_retries: 2
     supports_vision: false
-    thinking_enabled: false
+    supports_thinking: false
 ```
 
 确保 Ollama 已运行并已拉取所需模型：

@@ -44,9 +44,16 @@ http://localhost:2026/api
 |---|---|---|
 | `GET` | `/api/threads` | 列出线程 |
 | `DELETE` | `/api/threads/{thread_id}` | 删除线程 |
-| `GET` | `/api/memory` | 获取全局记忆 |
-| `GET` | `/api/memory/{agent_name}` | 获取 Agent 特定记忆 |
-| `DELETE` | `/api/memory` | 清除全局记忆 |
+| `GET` | `/api/memory` | 获取全局记忆数据（上下文 + 事实） |
+| `DELETE` | `/api/memory` | 清除所有记忆数据 |
+| `POST` | `/api/memory/reload` | 从存储文件重新加载记忆 |
+| `POST` | `/api/memory/facts` | 创建一条记忆事实 |
+| `PATCH` | `/api/memory/facts/{fact_id}` | 更新一条记忆事实 |
+| `DELETE` | `/api/memory/facts/{fact_id}` | 删除一条记忆事实 |
+| `GET` | `/api/memory/export` | 导出记忆数据为 JSON |
+| `POST` | `/api/memory/import` | 导入并覆盖记忆数据 |
+| `GET` | `/api/memory/config` | 获取记忆配置 |
+| `GET` | `/api/memory/status` | 一次性获取记忆配置和数据 |
 
 ### 扩展
 

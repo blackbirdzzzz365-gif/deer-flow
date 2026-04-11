@@ -14,7 +14,7 @@ backend/
 │       │   ├── memory.py     # 记忆读取/清除
 │       │   ├── threads.py    # 线程管理
 │       │   └── uploads.py    # 文件上传
-│       └── main.py           # FastAPI 应用入口
+│       └── app.py            # FastAPI 应用入口（create_app()）
 │
 └── packages/harness/deerflow/
     ├── agents/
@@ -85,4 +85,4 @@ frontend/src/
 | 技能加载（热重载） | `skills/loader.py` |
 | MCP 工具缓存 | `mcp/cache.py` |
 | 文件上传处理 | `uploads/manager.py` |
-| Gateway 主路由器 | `app/gateway/main.py` |
+| Gateway 应用工厂 | `app/gateway/app.py` |
