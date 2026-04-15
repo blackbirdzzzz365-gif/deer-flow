@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class McpOAuthConfig(BaseModel):
     """OAuth configuration for an MCP server (HTTP/SSE transports)."""
 
+    model_config = ConfigDict(extra="allow", frozen=True)
+
     enabled: bool = Field(default=True, description="Whether OAuth token injection is enabled")
     token_url: str = Field(description="OAuth token endpoint URL")
     grant_type: Literal["client_credentials", "refresh_token"] = Field(
@@ -28,11 +30,12 @@ class McpOAuthConfig(BaseModel):
     default_token_type: str = Field(default="Bearer", description="Default token type when missing in token response")
     refresh_skew_seconds: int = Field(default=60, description="Refresh token this many seconds before expiry")
     extra_token_params: dict[str, str] = Field(default_factory=dict, description="Additional form params sent to token endpoint")
-    model_config = ConfigDict(extra="allow")
 
 
 class McpServerConfig(BaseModel):
     """Configuration for a single MCP server."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
 
     enabled: bool = Field(default=True, description="Whether this MCP server is enabled")
     type: str = Field(default="stdio", description="Transport type: 'stdio', 'sse', or 'http'")
@@ -43,11 +46,12 @@ class McpServerConfig(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict, description="HTTP headers to send (for sse or http type)")
     oauth: McpOAuthConfig | None = Field(default=None, description="OAuth configuration (for sse or http type)")
     description: str = Field(default="", description="Human-readable description of what this MCP server provides")
-    model_config = ConfigDict(extra="allow")
 
 
 class SkillStateConfig(BaseModel):
     """Configuration for a single skill's state."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(default=True, description="Whether this skill is enabled")
 
@@ -64,7 +68,7 @@ class ExtensionsConfig(BaseModel):
         default_factory=dict,
         description="Map of skill name to state configuration",
     )
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", frozen=True, populate_by_name=True)
 
     @classmethod
     def resolve_config_path(cls, config_path: str | None = None) -> Path | None:
@@ -195,62 +199,3 @@ class ExtensionsConfig(BaseModel):
             # Default to enable for public & custom skill
             return skill_category in ("public", "custom")
         return skill_config.enabled
-
-
-_extensions_config: ExtensionsConfig | None = None
-
-
-def get_extensions_config() -> ExtensionsConfig:
-    """Get the extensions config instance.
-
-    Returns a cached singleton instance. Use `reload_extensions_config()` to reload
-    from file, or `reset_extensions_config()` to clear the cache.
-
-    Returns:
-        The cached ExtensionsConfig instance.
-    """
-    global _extensions_config
-    if _extensions_config is None:
-        _extensions_config = ExtensionsConfig.from_file()
-    return _extensions_config
-
-
-def reload_extensions_config(config_path: str | None = None) -> ExtensionsConfig:
-    """Reload the extensions config from file and update the cached instance.
-
-    This is useful when the config file has been modified and you want
-    to pick up the changes without restarting the application.
-
-    Args:
-        config_path: Optional path to extensions config file. If not provided,
-                     uses the default resolution strategy.
-
-    Returns:
-        The newly loaded ExtensionsConfig instance.
-    """
-    global _extensions_config
-    _extensions_config = ExtensionsConfig.from_file(config_path)
-    return _extensions_config
-
-
-def reset_extensions_config() -> None:
-    """Reset the cached extensions config instance.
-
-    This clears the singleton cache, causing the next call to
-    `get_extensions_config()` to reload from file. Useful for testing
-    or when switching between different configurations.
-    """
-    global _extensions_config
-    _extensions_config = None
-
-
-def set_extensions_config(config: ExtensionsConfig) -> None:
-    """Set a custom extensions config instance.
-
-    This allows injecting a custom or mock config for testing purposes.
-
-    Args:
-        config: The ExtensionsConfig instance to use.
-    """
-    global _extensions_config
-    _extensions_config = config

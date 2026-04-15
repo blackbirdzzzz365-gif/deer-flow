@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.agents.lead_agent.prompt import refresh_skills_system_prompt_cache_async
-from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
+from deerflow.config.app_config import AppConfig
+from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig
 from deerflow.skills import Skill, load_skills
 from deerflow.skills.installer import SkillAlreadyExistsError, install_skill_from_archive
 from deerflow.skills.manager import (
@@ -325,19 +326,19 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
             config_path = Path.cwd().parent / "extensions_config.json"
             logger.info(f"No existing extensions config found. Creating new config at: {config_path}")
 
-        extensions_config = get_extensions_config()
-        extensions_config.skills[skill_name] = SkillStateConfig(enabled=request.enabled)
+        ext = AppConfig.current().extensions
+        ext.skills[skill_name] = SkillStateConfig(enabled=request.enabled)
 
         config_data = {
-            "mcpServers": {name: server.model_dump() for name, server in extensions_config.mcp_servers.items()},
-            "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in extensions_config.skills.items()},
+            "mcpServers": {name: server.model_dump() for name, server in ext.mcp_servers.items()},
+            "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in ext.skills.items()},
         }
 
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=2)
 
         logger.info(f"Skills configuration updated and saved to: {config_path}")
-        reload_extensions_config()
+        AppConfig.init(AppConfig.from_file())
         await refresh_skills_system_prompt_cache_async()
 
         skills = load_skills(enabled_only=False)

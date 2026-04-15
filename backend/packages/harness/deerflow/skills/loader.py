@@ -42,9 +42,9 @@ def load_skills(skills_path: Path | None = None, use_config: bool = True, enable
     if skills_path is None:
         if use_config:
             try:
-                from deerflow.config import get_app_config
+                from deerflow.config.app_config import AppConfig
 
-                config = get_app_config()
+                config = AppConfig.current()
                 skills_path = config.skills.get_skills_path()
             except Exception:
                 # Fallback to default if config fails

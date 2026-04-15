@@ -1,31 +1,33 @@
+from __future__ import annotations
+
 import logging
 import os
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
-from deerflow.config.acp_config import load_acp_config_from_dict
-from deerflow.config.checkpointer_config import CheckpointerConfig, load_checkpointer_config_from_dict
+from deerflow.config.acp_config import ACPAgentConfig
+from deerflow.config.checkpointer_config import CheckpointerConfig
 from deerflow.config.database_config import DatabaseConfig
 from deerflow.config.extensions_config import ExtensionsConfig
-from deerflow.config.guardrails_config import GuardrailsConfig, load_guardrails_config_from_dict
-from deerflow.config.memory_config import MemoryConfig, load_memory_config_from_dict
+from deerflow.config.guardrails_config import GuardrailsConfig
+from deerflow.config.memory_config import MemoryConfig
 from deerflow.config.model_config import ModelConfig
 from deerflow.config.run_events_config import RunEventsConfig
 from deerflow.config.sandbox_config import SandboxConfig
 from deerflow.config.skill_evolution_config import SkillEvolutionConfig
 from deerflow.config.skills_config import SkillsConfig
-from deerflow.config.stream_bridge_config import StreamBridgeConfig, load_stream_bridge_config_from_dict
-from deerflow.config.subagents_config import SubagentsAppConfig, load_subagents_config_from_dict
-from deerflow.config.summarization_config import SummarizationConfig, load_summarization_config_from_dict
-from deerflow.config.title_config import TitleConfig, load_title_config_from_dict
+from deerflow.config.stream_bridge_config import StreamBridgeConfig
+from deerflow.config.subagents_config import SubagentsAppConfig
+from deerflow.config.summarization_config import SummarizationConfig
+from deerflow.config.title_config import TitleConfig
 from deerflow.config.token_usage_config import TokenUsageConfig
 from deerflow.config.tool_config import ToolConfig, ToolGroupConfig
-from deerflow.config.tool_search_config import ToolSearchConfig, load_tool_search_config_from_dict
+from deerflow.config.tool_search_config import ToolSearchConfig
 
 load_dotenv()
 
@@ -57,11 +59,12 @@ class AppConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig, description="Memory subsystem configuration")
     subagents: SubagentsAppConfig = Field(default_factory=SubagentsAppConfig, description="Subagent runtime configuration")
     guardrails: GuardrailsConfig = Field(default_factory=GuardrailsConfig, description="Guardrail middleware configuration")
-    model_config = ConfigDict(extra="allow", frozen=False)
+    model_config = ConfigDict(extra="allow", frozen=True)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Unified database backend configuration")
     run_events: RunEventsConfig = Field(default_factory=RunEventsConfig, description="Run event storage configuration")
     checkpointer: CheckpointerConfig | None = Field(default=None, description="Checkpointer configuration")
     stream_bridge: StreamBridgeConfig | None = Field(default=None, description="Stream bridge configuration")
+    acp_agents: dict[str, ACPAgentConfig] = Field(default_factory=dict, description="ACP agent configurations keyed by agent name")
 
     @classmethod
     def resolve_config_path(cls, config_path: str | None = None) -> Path:
@@ -108,41 +111,6 @@ class AppConfig(BaseModel):
         cls._check_config_version(config_data, resolved_path)
 
         config_data = cls.resolve_env_variables(config_data)
-
-        # Load title config if present
-        if "title" in config_data:
-            load_title_config_from_dict(config_data["title"])
-
-        # Load summarization config if present
-        if "summarization" in config_data:
-            load_summarization_config_from_dict(config_data["summarization"])
-
-        # Load memory config if present
-        if "memory" in config_data:
-            load_memory_config_from_dict(config_data["memory"])
-
-        # Load subagents config if present
-        if "subagents" in config_data:
-            load_subagents_config_from_dict(config_data["subagents"])
-
-        # Load tool_search config if present
-        if "tool_search" in config_data:
-            load_tool_search_config_from_dict(config_data["tool_search"])
-
-        # Load guardrails config if present
-        if "guardrails" in config_data:
-            load_guardrails_config_from_dict(config_data["guardrails"])
-
-        # Load checkpointer config if present
-        if "checkpointer" in config_data:
-            load_checkpointer_config_from_dict(config_data["checkpointer"])
-
-        # Load stream bridge config if present
-        if "stream_bridge" in config_data:
-            load_stream_bridge_config_from_dict(config_data["stream_bridge"])
-
-        # Always refresh ACP agent config so removed entries do not linger across reloads.
-        load_acp_config_from_dict(config_data.get("acp_agents", {}))
 
         # Load extensions config separately (it's in a different file)
         extensions_config = ExtensionsConfig.from_file()
@@ -254,130 +222,26 @@ class AppConfig(BaseModel):
         """
         return next((group for group in self.tool_groups if group.name == name), None)
 
+    # -- Lifecycle (class-level singleton via ContextVar) --
 
-_app_config: AppConfig | None = None
-_app_config_path: Path | None = None
-_app_config_mtime: float | None = None
-_app_config_is_custom = False
-_current_app_config: ContextVar[AppConfig | None] = ContextVar("deerflow_current_app_config", default=None)
-_current_app_config_stack: ContextVar[tuple[AppConfig | None, ...]] = ContextVar("deerflow_current_app_config_stack", default=())
+    _current: ClassVar[ContextVar[AppConfig]] = ContextVar("deerflow_app_config")
 
+    @classmethod
+    def init(cls, config: AppConfig) -> None:
+        """Set the AppConfig for the current context. Call once at process startup."""
+        cls._current.set(config)
 
-def _get_config_mtime(config_path: Path) -> float | None:
-    """Get the modification time of a config file if it exists."""
-    try:
-        return config_path.stat().st_mtime
-    except OSError:
-        return None
+    @classmethod
+    def current(cls) -> AppConfig:
+        """Get the current AppConfig.
 
-
-def _load_and_cache_app_config(config_path: str | None = None) -> AppConfig:
-    """Load config from disk and refresh cache metadata."""
-    global _app_config, _app_config_path, _app_config_mtime, _app_config_is_custom
-
-    resolved_path = AppConfig.resolve_config_path(config_path)
-    _app_config = AppConfig.from_file(str(resolved_path))
-    _app_config_path = resolved_path
-    _app_config_mtime = _get_config_mtime(resolved_path)
-    _app_config_is_custom = False
-    return _app_config
-
-
-def get_app_config() -> AppConfig:
-    """Get the DeerFlow config instance.
-
-    Returns a cached singleton instance and automatically reloads it when the
-    underlying config file path or modification time changes. Use
-    `reload_app_config()` to force a reload, or `reset_app_config()` to clear
-    the cache.
-    """
-    global _app_config, _app_config_path, _app_config_mtime
-
-    runtime_override = _current_app_config.get()
-    if runtime_override is not None:
-        return runtime_override
-
-    if _app_config is not None and _app_config_is_custom:
-        return _app_config
-
-    resolved_path = AppConfig.resolve_config_path()
-    current_mtime = _get_config_mtime(resolved_path)
-
-    should_reload = _app_config is None or _app_config_path != resolved_path or _app_config_mtime != current_mtime
-    if should_reload:
-        if _app_config_path == resolved_path and _app_config_mtime is not None and current_mtime is not None and _app_config_mtime != current_mtime:
-            logger.info(
-                "Config file has been modified (mtime: %s -> %s), reloading AppConfig",
-                _app_config_mtime,
-                current_mtime,
-            )
-        _load_and_cache_app_config(str(resolved_path))
-    return _app_config
-
-
-def reload_app_config(config_path: str | None = None) -> AppConfig:
-    """Reload the config from file and update the cached instance.
-
-    This is useful when the config file has been modified and you want
-    to pick up the changes without restarting the application.
-
-    Args:
-        config_path: Optional path to config file. If not provided,
-                     uses the default resolution strategy.
-
-    Returns:
-        The newly loaded AppConfig instance.
-    """
-    return _load_and_cache_app_config(config_path)
-
-
-def reset_app_config() -> None:
-    """Reset the cached config instance.
-
-    This clears the singleton cache, causing the next call to
-    `get_app_config()` to reload from file. Useful for testing
-    or when switching between different configurations.
-    """
-    global _app_config, _app_config_path, _app_config_mtime, _app_config_is_custom
-    _app_config = None
-    _app_config_path = None
-    _app_config_mtime = None
-    _app_config_is_custom = False
-
-
-def set_app_config(config: AppConfig) -> None:
-    """Set a custom config instance.
-
-    This allows injecting a custom or mock config for testing purposes.
-
-    Args:
-        config: The AppConfig instance to use.
-    """
-    global _app_config, _app_config_path, _app_config_mtime, _app_config_is_custom
-    _app_config = config
-    _app_config_path = None
-    _app_config_mtime = None
-    _app_config_is_custom = True
-
-
-def peek_current_app_config() -> AppConfig | None:
-    """Return the runtime-scoped AppConfig override, if one is active."""
-    return _current_app_config.get()
-
-
-def push_current_app_config(config: AppConfig) -> None:
-    """Push a runtime-scoped AppConfig override for the current execution context."""
-    stack = _current_app_config_stack.get()
-    _current_app_config_stack.set(stack + (_current_app_config.get(),))
-    _current_app_config.set(config)
-
-
-def pop_current_app_config() -> None:
-    """Pop the latest runtime-scoped AppConfig override for the current execution context."""
-    stack = _current_app_config_stack.get()
-    if not stack:
-        _current_app_config.set(None)
-        return
-    previous = stack[-1]
-    _current_app_config_stack.set(stack[:-1])
-    _current_app_config.set(previous)
+        Auto-initializes from config file on first access for backward compatibility.
+        Prefer calling AppConfig.init() explicitly at process startup.
+        """
+        try:
+            return cls._current.get()
+        except LookupError:
+            logger.debug("AppConfig not initialized, auto-loading from file")
+            config = cls.from_file()
+            cls._current.set(config)
+            return config

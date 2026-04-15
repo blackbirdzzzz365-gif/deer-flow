@@ -8,7 +8,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langgraph.config import get_config
 from langgraph.runtime import Runtime
 
-from deerflow.config.title_config import get_title_config
+from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
     def _should_generate_title(self, state: TitleMiddlewareState) -> bool:
         """Check if we should generate a title for this thread."""
-        config = get_title_config()
+        config = AppConfig.current().title
         if not config.enabled:
             return False
 
@@ -71,7 +71,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
         Returns (prompt_string, user_msg) so callers can use user_msg as fallback.
         """
-        config = get_title_config()
+        config = AppConfig.current().title
         messages = state.get("messages", [])
 
         user_msg_content = next((m.content for m in messages if m.type == "human"), "")
@@ -89,13 +89,13 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
     def _parse_title(self, content: object) -> str:
         """Normalize model output into a clean title string."""
-        config = get_title_config()
+        config = AppConfig.current().title
         title_content = self._normalize_content(content)
         title = title_content.strip().strip('"').strip("'")
         return title[: config.max_chars] if len(title) > config.max_chars else title
 
     def _fallback_title(self, user_msg: str) -> str:
-        config = get_title_config()
+        config = AppConfig.current().title
         fallback_chars = min(config.max_chars, 50)
         if len(user_msg) > fallback_chars:
             return user_msg[:fallback_chars].rstrip() + "..."
@@ -128,7 +128,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         if not self._should_generate_title(state):
             return None
 
-        config = get_title_config()
+        config = AppConfig.current().title
         prompt, user_msg = self._build_title_prompt(state)
 
         try:

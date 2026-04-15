@@ -11,7 +11,13 @@ from deerflow.agents.memory.storage import (
     create_empty_memory,
     get_memory_storage,
 )
+from deerflow.config.app_config import AppConfig
 from deerflow.config.memory_config import MemoryConfig
+from deerflow.config.sandbox_config import SandboxConfig
+
+
+def _app_config(**memory_overrides) -> AppConfig:
+    return AppConfig(sandbox=SandboxConfig(use="test"), memory=MemoryConfig(**memory_overrides))
 
 
 class TestCreateEmptyMemory:
@@ -53,7 +59,7 @@ class TestFileMemoryStorage:
             return mock_paths
 
         with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
-            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+            with patch.object(AppConfig, "current", return_value=_app_config(storage_path="")):
                 storage = FileMemoryStorage()
                 path = storage._get_memory_file_path(None)
                 assert path == tmp_path / "memory.json"
@@ -87,7 +93,7 @@ class TestFileMemoryStorage:
             return mock_paths
 
         with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
-            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+            with patch.object(AppConfig, "current", return_value=_app_config(storage_path="")):
                 storage = FileMemoryStorage()
                 memory = storage.load()
                 assert isinstance(memory, dict)
@@ -103,7 +109,7 @@ class TestFileMemoryStorage:
             return mock_paths
 
         with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
-            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+            with patch.object(AppConfig, "current", return_value=_app_config(storage_path="")):
                 storage = FileMemoryStorage()
                 test_memory = {"version": "1.0", "facts": [{"content": "test fact"}]}
                 result = storage.save(test_memory)
@@ -122,7 +128,7 @@ class TestFileMemoryStorage:
             return mock_paths
 
         with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
-            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+            with patch.object(AppConfig, "current", return_value=_app_config(storage_path="")):
                 storage = FileMemoryStorage()
                 # First load
                 memory1 = storage.load()
@@ -150,19 +156,19 @@ class TestGetMemoryStorage:
 
     def test_returns_file_memory_storage_by_default(self):
         """Should return FileMemoryStorage by default."""
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)
 
     def test_falls_back_to_file_memory_storage_on_error(self):
         """Should fall back to FileMemoryStorage if configured storage fails to load."""
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="non.existent.StorageClass")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="non.existent.StorageClass")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)
 
     def test_returns_singleton_instance(self):
         """Should return the same instance on subsequent calls."""
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
             storage1 = get_memory_storage()
             storage2 = get_memory_storage()
             assert storage1 is storage2
@@ -173,11 +179,11 @@ class TestGetMemoryStorage:
 
         def get_storage():
             # get_memory_storage is called concurrently from multiple threads while
-            # get_memory_config is patched once around thread creation. This verifies
+            # AppConfig.get is patched once around thread creation. This verifies
             # that the singleton initialization remains thread-safe.
             results.append(get_memory_storage())
 
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="deerflow.agents.memory.storage.FileMemoryStorage")):
             threads = [threading.Thread(target=get_storage) for _ in range(10)]
             for t in threads:
                 t.start()
@@ -191,13 +197,13 @@ class TestGetMemoryStorage:
     def test_get_memory_storage_invalid_class_fallback(self):
         """Should fall back to FileMemoryStorage if the configured class is not actually a class."""
         # Using a built-in function instead of a class
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="os.path.join")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="os.path.join")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)
 
     def test_get_memory_storage_non_subclass_fallback(self):
         """Should fall back to FileMemoryStorage if the configured class is not a subclass of MemoryStorage."""
         # Using 'dict' as a class that is not a MemoryStorage subclass
-        with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="builtins.dict")):
+        with patch.object(AppConfig, "current", return_value=_app_config(storage_class="builtins.dict")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)

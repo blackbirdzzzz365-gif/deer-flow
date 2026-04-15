@@ -27,7 +27,7 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
-from deerflow.config.app_config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 # Configure logging
 logging.basicConfig(
@@ -147,7 +147,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Load config and check necessary environment variables at startup
     try:
-        get_app_config()
+        AppConfig.current()
         logger.info("Configuration loaded successfully")
     except Exception as e:
         error_msg = f"Failed to load configuration during gateway startup: {e}"

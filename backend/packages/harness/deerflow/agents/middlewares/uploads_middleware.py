@@ -9,6 +9,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
+from deerflow.config.deer_flow_context import DeerFlowContext
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.utils.file_conversion import extract_outline
@@ -185,7 +186,7 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
         return files if files else None
 
     @override
-    def before_agent(self, state: UploadsMiddlewareState, runtime: Runtime) -> dict | None:
+    def before_agent(self, state: UploadsMiddlewareState, runtime: Runtime[DeerFlowContext]) -> dict | None:
         """Inject uploaded files information before agent execution.
 
         New files come from the current message's additional_kwargs.files.
@@ -214,14 +215,7 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
             return None
 
         # Resolve uploads directory for existence checks
-        thread_id = (runtime.context or {}).get("thread_id")
-        if thread_id is None:
-            try:
-                from langgraph.config import get_config
-
-                thread_id = get_config().get("configurable", {}).get("thread_id")
-            except RuntimeError:
-                pass  # get_config() raises outside a runnable context (e.g. unit tests)
+        thread_id = runtime.context.thread_id
         uploads_dir = self._paths.sandbox_uploads_dir(thread_id, user_id=get_effective_user_id()) if thread_id else None
 
         # Get newly uploaded files from the current message's additional_kwargs.files

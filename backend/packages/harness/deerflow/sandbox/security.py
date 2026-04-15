@@ -1,6 +1,6 @@
 """Security helpers for sandbox capability gating."""
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 _LOCAL_SANDBOX_PROVIDER_MARKERS = (
     "deerflow.sandbox.local:LocalSandboxProvider",
@@ -23,7 +23,7 @@ LOCAL_BASH_SUBAGENT_DISABLED_MESSAGE = (
 def uses_local_sandbox_provider(config=None) -> bool:
     """Return True when the active sandbox provider is the host-local provider."""
     if config is None:
-        config = get_app_config()
+        config = AppConfig.current()
 
     sandbox_cfg = getattr(config, "sandbox", None)
     sandbox_use = getattr(sandbox_cfg, "use", "")
@@ -35,7 +35,7 @@ def uses_local_sandbox_provider(config=None) -> bool:
 def is_host_bash_allowed(config=None) -> bool:
     """Return whether host bash execution is explicitly allowed."""
     if config is None:
-        config = get_app_config()
+        config = AppConfig.current()
 
     sandbox_cfg = getattr(config, "sandbox", None)
     if sandbox_cfg is None:

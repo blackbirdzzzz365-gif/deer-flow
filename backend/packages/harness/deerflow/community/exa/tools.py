@@ -3,11 +3,11 @@ import json
 from exa_py import Exa
 from langchain.tools import tool
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 
 def _get_exa_client(tool_name: str = "web_search") -> Exa:
-    config = get_app_config().get_tool_config(tool_name)
+    config = AppConfig.current().get_tool_config(tool_name)
     api_key = None
     if config is not None and "api_key" in config.model_extra:
         api_key = config.model_extra.get("api_key")
@@ -22,7 +22,7 @@ def web_search_tool(query: str) -> str:
         query: The query to search for.
     """
     try:
-        config = get_app_config().get_tool_config("web_search")
+        config = AppConfig.current().get_tool_config("web_search")
         max_results = 5
         search_type = "auto"
         contents_max_characters = 1000

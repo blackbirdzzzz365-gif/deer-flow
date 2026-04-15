@@ -10,12 +10,22 @@ from deerflow.agents.middlewares.loop_detection_middleware import (
     LoopDetectionMiddleware,
     _hash_tool_calls,
 )
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
+from deerflow.config.sandbox_config import SandboxConfig
+
+
+def _make_context(thread_id: str) -> DeerFlowContext:
+    return DeerFlowContext(
+        app_config=AppConfig(sandbox=SandboxConfig(use="test")),
+        thread_id=thread_id,
+    )
 
 
 def _make_runtime(thread_id="test-thread"):
     """Build a minimal Runtime mock with context."""
     runtime = MagicMock()
-    runtime.context = {"thread_id": thread_id}
+    runtime.context = _make_context(thread_id)
     return runtime
 
 
@@ -291,10 +301,10 @@ class TestLoopDetection:
         assert isinstance(mw._lock, type(mw._lock))
 
     def test_fallback_thread_id_when_missing(self):
-        """When runtime context has no thread_id, should use 'default'."""
+        """When runtime context has empty thread_id, should use 'default'."""
         mw = LoopDetectionMiddleware(warn_threshold=2)
         runtime = MagicMock()
-        runtime.context = {}
+        runtime.context = _make_context("")
         call = [_bash_call("ls")]
 
         mw._apply(_make_state(tool_calls=call), runtime)

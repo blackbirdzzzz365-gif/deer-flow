@@ -3,11 +3,11 @@ import json
 from langchain.tools import tool
 from tavily import TavilyClient
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 
 def _get_tavily_client() -> TavilyClient:
-    config = get_app_config().get_tool_config("web_search")
+    config = AppConfig.current().get_tool_config("web_search")
     api_key = None
     if config is not None and "api_key" in config.model_extra:
         api_key = config.model_extra.get("api_key")
@@ -21,7 +21,7 @@ def web_search_tool(query: str) -> str:
     Args:
         query: The query to search for.
     """
-    config = get_app_config().get_tool_config("web_search")
+    config = AppConfig.current().get_tool_config("web_search")
     max_results = 5
     if config is not None and "max_results" in config.model_extra:
         max_results = config.model_extra.get("max_results")

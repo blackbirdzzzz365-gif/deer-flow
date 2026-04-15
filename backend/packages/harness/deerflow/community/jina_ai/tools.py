@@ -1,7 +1,7 @@
 from langchain.tools import tool
 
 from deerflow.community.jina_ai.jina_client import JinaClient
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.utils.readability import ReadabilityExtractor
 
 readability_extractor = ReadabilityExtractor()
@@ -20,7 +20,7 @@ async def web_fetch_tool(url: str) -> str:
     """
     jina_client = JinaClient()
     timeout = 10
-    config = get_app_config().get_tool_config("web_fetch")
+    config = AppConfig.current().get_tool_config("web_fetch")
     if config is not None and "timeout" in config.model_extra:
         timeout = config.model_extra.get("timeout")
     html_content = await jina_client.crawl(url, return_format="html", timeout=timeout)

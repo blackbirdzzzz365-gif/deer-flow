@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import yaml
 
-from deerflow.config.app_config import get_app_config, reset_app_config
+from deerflow.config.app_config import AppConfig
 
 
 def _write_config(path: Path, *, model_name: str, supports_thinking: bool) -> None:
@@ -32,50 +31,61 @@ def _write_extensions_config(path: Path) -> None:
     path.write_text(json.dumps({"mcpServers": {}, "skills": {}}), encoding="utf-8")
 
 
-def test_get_app_config_reloads_when_file_changes(tmp_path, monkeypatch):
+def test_init_then_get(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     extensions_path = tmp_path / "extensions_config.json"
     _write_extensions_config(extensions_path)
-    _write_config(config_path, model_name="first-model", supports_thinking=False)
+    _write_config(config_path, model_name="test-model", supports_thinking=False)
 
     monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
-    reset_app_config()
 
-    try:
-        initial = get_app_config()
-        assert initial.models[0].supports_thinking is False
+    config = AppConfig.from_file(str(config_path))
+    AppConfig.init(config)
 
-        _write_config(config_path, model_name="first-model", supports_thinking=True)
-        next_mtime = config_path.stat().st_mtime + 5
-        os.utime(config_path, (next_mtime, next_mtime))
-
-        reloaded = get_app_config()
-        assert reloaded.models[0].supports_thinking is True
-        assert reloaded is not initial
-    finally:
-        reset_app_config()
+    result = AppConfig.current()
+    assert result is config
+    assert result.models[0].name == "test-model"
 
 
-def test_get_app_config_reloads_when_config_path_changes(tmp_path, monkeypatch):
-    config_a = tmp_path / "config-a.yaml"
-    config_b = tmp_path / "config-b.yaml"
+def test_init_replaces_previous(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
     extensions_path = tmp_path / "extensions_config.json"
     _write_extensions_config(extensions_path)
-    _write_config(config_a, model_name="model-a", supports_thinking=False)
-    _write_config(config_b, model_name="model-b", supports_thinking=True)
+    _write_config(config_path, model_name="model-a", supports_thinking=False)
 
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
-    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_a))
-    reset_app_config()
 
-    try:
-        first = get_app_config()
-        assert first.models[0].name == "model-a"
+    config_a = AppConfig.from_file(str(config_path))
+    AppConfig.init(config_a)
+    assert AppConfig.current().models[0].name == "model-a"
 
-        monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_b))
-        second = get_app_config()
-        assert second.models[0].name == "model-b"
-        assert second is not first
-    finally:
-        reset_app_config()
+    _write_config(config_path, model_name="model-b", supports_thinking=True)
+    config_b = AppConfig.from_file(str(config_path))
+    AppConfig.init(config_b)
+    assert AppConfig.current().models[0].name == "model-b"
+    assert AppConfig.current() is config_b
+
+
+def test_config_version_check(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "config_version": 1,
+                "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
+                "models": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+
+    config = AppConfig.from_file(str(config_path))
+    assert config is not None

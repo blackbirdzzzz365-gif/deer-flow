@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from deerflow.config.app_config import AppConfig
 from deerflow.sandbox.tools import (
     VIRTUAL_PATH_PREFIX,
     _apply_cwd_prefix,
@@ -617,18 +618,25 @@ def test_apply_cwd_prefix_quotes_path_with_spaces() -> None:
 
 def test_validate_local_bash_command_paths_allows_mcp_filesystem_paths() -> None:
     """Bash commands referencing MCP filesystem server paths should be allowed."""
+    from deerflow.config.app_config import AppConfig
     from deerflow.config.extensions_config import ExtensionsConfig, McpServerConfig
+    from deerflow.config.sandbox_config import SandboxConfig
 
-    mock_config = ExtensionsConfig(
-        mcp_servers={
-            "filesystem": McpServerConfig(
-                enabled=True,
-                command="npx",
-                args=["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/workspace"],
-            )
-        }
-    )
-    with patch("deerflow.config.extensions_config.get_extensions_config", return_value=mock_config):
+    def _make_app_config(enabled: bool) -> AppConfig:
+        return AppConfig(
+            sandbox=SandboxConfig(use="test"),
+            extensions=ExtensionsConfig(
+                mcp_servers={
+                    "filesystem": McpServerConfig(
+                        enabled=enabled,
+                        command="npx",
+                        args=["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/workspace"],
+                    )
+                }
+            ),
+        )
+
+    with patch.object(AppConfig, "current", return_value=_make_app_config(True)):
         # Should not raise - MCP filesystem paths are allowed
         validate_local_bash_command_paths("ls /mnt/d/workspace", _THREAD_DATA)
         validate_local_bash_command_paths("cat /mnt/d/workspace/subdir/file.txt", _THREAD_DATA)
@@ -637,19 +645,10 @@ def test_validate_local_bash_command_paths_allows_mcp_filesystem_paths() -> None
         with pytest.raises(PermissionError, match="path traversal"):
             validate_local_bash_command_paths("cat /mnt/d/workspace/../../etc/passwd", _THREAD_DATA)
 
-        # Disabled servers should not expose paths
-        disabled_config = ExtensionsConfig(
-            mcp_servers={
-                "filesystem": McpServerConfig(
-                    enabled=False,
-                    command="npx",
-                    args=["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/workspace"],
-                )
-            }
-        )
-        with patch("deerflow.config.extensions_config.get_extensions_config", return_value=disabled_config):
-            with pytest.raises(PermissionError, match="Unsafe absolute paths"):
-                validate_local_bash_command_paths("ls /mnt/d/workspace", _THREAD_DATA)
+    # Disabled servers should not expose paths
+    with patch.object(AppConfig, "current", return_value=_make_app_config(False)):
+        with pytest.raises(PermissionError, match="Unsafe absolute paths"):
+            validate_local_bash_command_paths("ls /mnt/d/workspace", _THREAD_DATA)
 
 
 # ---------- Custom mount path tests ----------
@@ -757,7 +756,7 @@ def test_get_custom_mounts_caching(monkeypatch, tmp_path) -> None:
     mock_sandbox = SandboxConfig(use="deerflow.sandbox.local:LocalSandboxProvider", mounts=mounts)
     mock_config = SimpleNamespace(sandbox=mock_sandbox)
 
-    with patch("deerflow.config.get_app_config", return_value=mock_config):
+    with patch.object(AppConfig, "current", return_value=mock_config):
         result = _get_custom_mounts()
         assert len(result) == 2
 
@@ -786,7 +785,7 @@ def test_get_custom_mounts_filters_nonexistent_host_path(monkeypatch, tmp_path) 
     mock_sandbox = SandboxConfig(use="deerflow.sandbox.local:LocalSandboxProvider", mounts=mounts)
     mock_config = SimpleNamespace(sandbox=mock_sandbox)
 
-    with patch("deerflow.config.get_app_config", return_value=mock_config):
+    with patch.object(AppConfig, "current", return_value=mock_config):
         result = _get_custom_mounts()
         assert len(result) == 1
         assert result[0].container_path == "/mnt/existing"

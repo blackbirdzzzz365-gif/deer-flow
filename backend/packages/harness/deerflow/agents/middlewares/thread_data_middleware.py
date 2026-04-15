@@ -3,10 +3,10 @@ from typing import NotRequired, override
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
-from langgraph.config import get_config
 from langgraph.runtime import Runtime
 
 from deerflow.agents.thread_state import ThreadDataState
+from deerflow.config.deer_flow_context import DeerFlowContext
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 
@@ -77,14 +77,10 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
         return self._get_thread_paths(thread_id, user_id=user_id)
 
     @override
-    def before_agent(self, state: ThreadDataMiddlewareState, runtime: Runtime) -> dict | None:
-        context = runtime.context or {}
-        thread_id = context.get("thread_id")
-        if thread_id is None:
-            config = get_config()
-            thread_id = config.get("configurable", {}).get("thread_id")
+    def before_agent(self, state: ThreadDataMiddlewareState, runtime: Runtime[DeerFlowContext]) -> dict | None:
+        thread_id = runtime.context.thread_id
 
-        if thread_id is None:
+        if not thread_id:
             raise ValueError("Thread ID is required in runtime context or config.configurable")
 
         user_id = get_effective_user_id()

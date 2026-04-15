@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _default_repo_root() -> Path:
@@ -10,6 +10,8 @@ def _default_repo_root() -> Path:
 
 class SkillsConfig(BaseModel):
     """Configuration for skills system"""
+
+    model_config = ConfigDict(frozen=True)
 
     path: str | None = Field(
         default=None,

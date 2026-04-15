@@ -40,7 +40,7 @@ def test_resolve_model_name_falls_back_to_default(monkeypatch, caplog):
         ]
     )
 
-    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
 
     with caplog.at_level("WARNING"):
         resolved = lead_agent_module._resolve_model_name("missing-model")
@@ -57,7 +57,7 @@ def test_resolve_model_name_uses_default_when_none(monkeypatch):
         ]
     )
 
-    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
 
     resolved = lead_agent_module._resolve_model_name(None)
 
@@ -67,7 +67,7 @@ def test_resolve_model_name_uses_default_when_none(monkeypatch):
 def test_resolve_model_name_raises_when_no_models_configured(monkeypatch):
     app_config = _make_app_config([])
 
-    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
 
     with pytest.raises(
         ValueError,
@@ -81,7 +81,7 @@ def test_make_lead_agent_disables_thinking_when_model_does_not_support_it(monkey
 
     import deerflow.tools as tools_module
 
-    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
     monkeypatch.setattr(tools_module, "get_available_tools", lambda **kwargs: [])
     monkeypatch.setattr(lead_agent_module, "_build_middlewares", lambda config, model_name, agent_name=None: [])
 
@@ -128,7 +128,8 @@ def test_build_middlewares_uses_resolved_model_name_for_vision(monkeypatch):
         ]
     )
 
-    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    AppConfig.init(app_config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -140,11 +141,10 @@ def test_build_middlewares_uses_resolved_model_name_for_vision(monkeypatch):
 
 
 def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch):
-    monkeypatch.setattr(
-        lead_agent_module,
-        "get_summarization_config",
-        lambda: SummarizationConfig(enabled=True, model_name="model-masswork"),
-    )
+    app_config = _make_app_config([_make_model("default", supports_thinking=False)])
+    patched = app_config.model_copy(update={"summarization": SummarizationConfig(enabled=True, model_name="model-masswork")})
+    AppConfig.init(patched)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: patched))
 
     from unittest.mock import MagicMock
 

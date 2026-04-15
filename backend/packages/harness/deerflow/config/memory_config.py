@@ -1,10 +1,12 @@
 """Configuration for memory mechanism."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MemoryConfig(BaseModel):
     """Configuration for global memory mechanism."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(
         default=True,
@@ -60,24 +62,3 @@ class MemoryConfig(BaseModel):
         le=8000,
         description="Maximum tokens to use for memory injection",
     )
-
-
-# Global configuration instance
-_memory_config: MemoryConfig = MemoryConfig()
-
-
-def get_memory_config() -> MemoryConfig:
-    """Get the current memory configuration."""
-    return _memory_config
-
-
-def set_memory_config(config: MemoryConfig) -> None:
-    """Set the memory configuration."""
-    global _memory_config
-    _memory_config = config
-
-
-def load_memory_config_from_dict(config_dict: dict) -> None:
-    """Load memory configuration from a dictionary."""
-    global _memory_config
-    _memory_config = MemoryConfig(**config_dict)

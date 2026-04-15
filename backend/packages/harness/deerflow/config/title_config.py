@@ -1,10 +1,12 @@
 """Configuration for automatic thread title generation."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TitleConfig(BaseModel):
     """Configuration for automatic thread title generation."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(
         default=True,
@@ -30,24 +32,3 @@ class TitleConfig(BaseModel):
         default=("Generate a concise title (max {max_words} words) for this conversation.\nUser: {user_msg}\nAssistant: {assistant_msg}\n\nReturn ONLY the title, no quotes, no explanation."),
         description="Prompt template for title generation",
     )
-
-
-# Global configuration instance
-_title_config: TitleConfig = TitleConfig()
-
-
-def get_title_config() -> TitleConfig:
-    """Get the current title configuration."""
-    return _title_config
-
-
-def set_title_config(config: TitleConfig) -> None:
-    """Set the title configuration."""
-    global _title_config
-    _title_config = config
-
-
-def load_title_config_from_dict(config_dict: dict) -> None:
-    """Load title configuration from a dictionary."""
-    global _title_config
-    _title_config = TitleConfig(**config_dict)

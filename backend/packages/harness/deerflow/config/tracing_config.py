@@ -1,13 +1,15 @@
 import os
 import threading
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 _config_lock = threading.Lock()
 
 
 class LangSmithTracingConfig(BaseModel):
     """Configuration for LangSmith tracing."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(...)
     api_key: str | None = Field(...)
@@ -25,6 +27,8 @@ class LangSmithTracingConfig(BaseModel):
 
 class LangfuseTracingConfig(BaseModel):
     """Configuration for Langfuse tracing."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(...)
     public_key: str | None = Field(...)
@@ -49,6 +53,8 @@ class LangfuseTracingConfig(BaseModel):
 
 class TracingConfig(BaseModel):
     """Tracing configuration for supported providers."""
+
+    model_config = ConfigDict(frozen=True)
 
     langsmith: LangSmithTracingConfig = Field(...)
     langfuse: LangfuseTracingConfig = Field(...)

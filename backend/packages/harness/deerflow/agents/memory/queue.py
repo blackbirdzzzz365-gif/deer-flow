@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from deerflow.config.memory_config import get_memory_config
+from deerflow.config.app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class MemoryUpdateQueue:
             correction_detected: Whether recent turns include an explicit correction signal.
             reinforcement_detected: Whether recent turns include a positive reinforcement signal.
         """
-        config = get_memory_config()
+        config = AppConfig.current().memory
         if not config.enabled:
             return
 
@@ -93,7 +93,7 @@ class MemoryUpdateQueue:
 
     def _reset_timer(self) -> None:
         """Reset the debounce timer."""
-        config = get_memory_config()
+        config = AppConfig.current().memory
 
         # Cancel existing timer if any
         if self._timer is not None:

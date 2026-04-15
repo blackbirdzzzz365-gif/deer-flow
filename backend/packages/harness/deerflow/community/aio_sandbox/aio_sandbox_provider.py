@@ -25,7 +25,7 @@ except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None  # type: ignore[assignment]
     import msvcrt
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox import Sandbox
@@ -149,7 +149,7 @@ class AioSandboxProvider(SandboxProvider):
 
     def _load_config(self) -> dict:
         """Load sandbox configuration from app config."""
-        config = get_app_config()
+        config = AppConfig.current()
         sandbox_config = config.sandbox
 
         idle_timeout = getattr(sandbox_config, "idle_timeout", None)
@@ -281,7 +281,7 @@ class AioSandboxProvider(SandboxProvider):
         so the host Docker daemon can resolve the path.
         """
         try:
-            config = get_app_config()
+            config = AppConfig.current()
             skills_path = config.skills.get_skills_path()
             container_path = config.skills.container_path
 

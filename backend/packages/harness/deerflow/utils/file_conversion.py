@@ -294,9 +294,9 @@ def _get_pdf_converter() -> str:
     fall through to unexpected behaviour.
     """
     try:
-        from deerflow.config.app_config import get_app_config
+        from deerflow.config.app_config import AppConfig
 
-        cfg = get_app_config()
+        cfg = AppConfig.current()
         uploads_cfg = getattr(cfg, "uploads", None)
         if uploads_cfg is not None:
             raw = str(getattr(uploads_cfg, "pdf_converter", "auto")).strip().lower()

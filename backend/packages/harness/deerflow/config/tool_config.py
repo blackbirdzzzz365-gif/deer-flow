@@ -5,7 +5,7 @@ class ToolGroupConfig(BaseModel):
     """Config section for a tool group"""
 
     name: str = Field(..., description="Unique name for the tool group")
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", frozen=True)
 
 
 class ToolConfig(BaseModel):
@@ -17,4 +17,4 @@ class ToolConfig(BaseModel):
         ...,
         description="Variable name of the tool provider(e.g. deerflow.sandbox.tools:bash_tool)",
     )
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", frozen=True)

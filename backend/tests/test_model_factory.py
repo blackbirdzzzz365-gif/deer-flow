@@ -72,8 +72,8 @@ class FakeChatModel(BaseChatModel):
 
 
 def _patch_factory(monkeypatch, app_config: AppConfig, model_class=FakeChatModel):
-    """Patch get_app_config, resolve_class, and tracing for isolated unit tests."""
-    monkeypatch.setattr(factory_module, "get_app_config", lambda: app_config)
+    """Patch AppConfig.get, resolve_class, and tracing for isolated unit tests."""
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: app_config))
     monkeypatch.setattr(factory_module, "resolve_class", lambda path, base: model_class)
     monkeypatch.setattr(factory_module, "build_tracing_callbacks", lambda: [])
 
@@ -96,7 +96,7 @@ def test_uses_first_model_when_name_is_none(monkeypatch):
 
 def test_raises_when_model_not_found(monkeypatch):
     cfg = _make_app_config([_make_model("only-model")])
-    monkeypatch.setattr(factory_module, "get_app_config", lambda: cfg)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: cfg))
     monkeypatch.setattr(factory_module, "build_tracing_callbacks", lambda: [])
 
     with pytest.raises(ValueError, match="ghost-model"):
@@ -744,7 +744,7 @@ def test_thinking_disabled_vllm_chat_template_format(monkeypatch):
         supports_thinking=True,
         when_thinking_enabled=wte,
     )
-    model.extra_body = {"top_k": 20}
+    model = model.model_copy(update={"extra_body": {"top_k": 20}})
     cfg = _make_app_config([model])
     _patch_factory(monkeypatch, cfg)
 
@@ -771,7 +771,7 @@ def test_thinking_disabled_vllm_enable_thinking_format(monkeypatch):
         supports_thinking=True,
         when_thinking_enabled=wte,
     )
-    model.extra_body = {"top_k": 20}
+    model = model.model_copy(update={"extra_body": {"top_k": 20}})
     cfg = _make_app_config([model])
     _patch_factory(monkeypatch, cfg)
 

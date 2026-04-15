@@ -7,7 +7,7 @@ from langchain.tools import ToolRuntime, tool
 from langgraph.typing import ContextT
 
 from deerflow.agents.thread_state import ThreadDataState, ThreadState
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.sandbox.exceptions import (
     SandboxError,
@@ -50,9 +50,7 @@ def _get_skills_container_path() -> str:
     if cached is not None:
         return cached
     try:
-        from deerflow.config import get_app_config
-
-        value = get_app_config().skills.container_path
+        value = AppConfig.current().skills.container_path
         _get_skills_container_path._cached = value  # type: ignore[attr-defined]
         return value
     except Exception:
@@ -71,9 +69,7 @@ def _get_skills_host_path() -> str | None:
     if cached is not None:
         return cached
     try:
-        from deerflow.config import get_app_config
-
-        config = get_app_config()
+        config = AppConfig.current()
         skills_path = config.skills.get_skills_path()
         if skills_path.exists():
             value = str(skills_path)
@@ -132,9 +128,7 @@ def _get_custom_mounts():
     try:
         from pathlib import Path
 
-        from deerflow.config import get_app_config
-
-        config = get_app_config()
+        config = AppConfig.current()
         mounts = []
         if config.sandbox and config.sandbox.mounts:
             # Only include mounts whose host_path exists, consistent with
@@ -275,9 +269,7 @@ def _get_mcp_allowed_paths() -> list[str]:
     """Get the list of allowed paths from MCP config for file system server."""
     allowed_paths = []
     try:
-        from deerflow.config.extensions_config import get_extensions_config
-
-        extensions_config = get_extensions_config()
+        extensions_config = AppConfig.current().extensions
 
         for _, server in extensions_config.mcp_servers.items():
             if not server.enabled:
@@ -302,7 +294,7 @@ def _get_mcp_allowed_paths() -> list[str]:
 
 def _get_tool_config_int(name: str, key: str, default: int) -> int:
     try:
-        tool_config = get_app_config().get_tool_config(name)
+        tool_config = AppConfig.current().get_tool_config(name)
         if tool_config is not None and key in tool_config.model_extra:
             value = tool_config.model_extra.get(key)
             if isinstance(value, int):
@@ -810,8 +802,6 @@ def sandbox_from_runtime(runtime: ToolRuntime[ContextT, ThreadState] | None = No
     if sandbox is None:
         raise SandboxNotFoundError(f"Sandbox with ID '{sandbox_id}' not found", sandbox_id=sandbox_id)
 
-    if runtime.context is not None:
-        runtime.context["sandbox_id"] = sandbox_id  # Ensure sandbox_id is in context for downstream use
     return sandbox
 
 
@@ -846,16 +836,12 @@ def ensure_sandbox_initialized(runtime: ToolRuntime[ContextT, ThreadState] | Non
         if sandbox_id is not None:
             sandbox = get_sandbox_provider().get(sandbox_id)
             if sandbox is not None:
-                if runtime.context is not None:
-                    runtime.context["sandbox_id"] = sandbox_id  # Ensure sandbox_id is in context for releasing in after_agent
                 return sandbox
             # Sandbox was released, fall through to acquire new one
 
     # Lazy acquisition: get thread_id and acquire sandbox
-    thread_id = runtime.context.get("thread_id") if runtime.context else None
-    if thread_id is None:
-        thread_id = runtime.config.get("configurable", {}).get("thread_id") if runtime.config else None
-    if thread_id is None:
+    thread_id = runtime.context.thread_id
+    if not thread_id:
         raise SandboxRuntimeError("Thread ID not available in runtime context")
 
     provider = get_sandbox_provider()
@@ -869,8 +855,6 @@ def ensure_sandbox_initialized(runtime: ToolRuntime[ContextT, ThreadState] | Non
     if sandbox is None:
         raise SandboxNotFoundError("Sandbox not found after acquisition", sandbox_id=sandbox_id)
 
-    if runtime.context is not None:
-        runtime.context["sandbox_id"] = sandbox_id  # Ensure sandbox_id is in context for releasing in after_agent
     return sandbox
 
 
@@ -1012,18 +996,14 @@ def bash_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, com
             command = _apply_cwd_prefix(command, thread_data)
             output = sandbox.execute_command(command)
             try:
-                from deerflow.config.app_config import get_app_config
-
-                sandbox_cfg = get_app_config().sandbox
+                sandbox_cfg = AppConfig.current().sandbox
                 max_chars = sandbox_cfg.bash_output_max_chars if sandbox_cfg else 20000
             except Exception:
                 max_chars = 20000
             return _truncate_bash_output(mask_local_paths_in_output(output, thread_data), max_chars)
         ensure_thread_directories_exist(runtime)
         try:
-            from deerflow.config.app_config import get_app_config
-
-            sandbox_cfg = get_app_config().sandbox
+            sandbox_cfg = AppConfig.current().sandbox
             max_chars = sandbox_cfg.bash_output_max_chars if sandbox_cfg else 20000
         except Exception:
             max_chars = 20000
@@ -1063,9 +1043,7 @@ def ls_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, path:
             return "(empty)"
         output = "\n".join(children)
         try:
-            from deerflow.config.app_config import get_app_config
-
-            sandbox_cfg = get_app_config().sandbox
+            sandbox_cfg = AppConfig.current().sandbox
             max_chars = sandbox_cfg.ls_output_max_chars if sandbox_cfg else 20000
         except Exception:
             max_chars = 20000
@@ -1236,9 +1214,7 @@ def read_file_tool(
         if start_line is not None and end_line is not None:
             content = "\n".join(content.splitlines()[start_line - 1 : end_line])
         try:
-            from deerflow.config.app_config import get_app_config
-
-            sandbox_cfg = get_app_config().sandbox
+            sandbox_cfg = AppConfig.current().sandbox
             max_chars = sandbox_cfg.read_file_output_max_chars if sandbox_cfg else 50000
         except Exception:
             max_chars = 50000

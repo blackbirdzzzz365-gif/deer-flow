@@ -8,6 +8,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
+from deerflow.config.sandbox_config import SandboxConfig
 from deerflow.subagents.config import SubagentConfig
 
 # Use module import so tests can patch the exact symbols referenced inside task_tool().
@@ -24,6 +27,13 @@ class FakeSubagentStatus(Enum):
     TIMED_OUT = "timed_out"
 
 
+def _make_context(thread_id: str) -> DeerFlowContext:
+    return DeerFlowContext(
+        app_config=AppConfig(sandbox=SandboxConfig(use="test")),
+        thread_id=thread_id,
+    )
+
+
 def _make_runtime() -> SimpleNamespace:
     # Minimal ToolRuntime-like object; task_tool only reads these three attributes.
     return SimpleNamespace(
@@ -35,7 +45,7 @@ def _make_runtime() -> SimpleNamespace:
                 "outputs_path": "/tmp/outputs",
             },
         },
-        context={"thread_id": "thread-1"},
+        context=_make_context("thread-1"),
         config={"metadata": {"model_name": "ark-model", "trace_id": "trace-1"}},
     )
 

@@ -26,7 +26,7 @@ from collections.abc import Iterator
 
 from langgraph.store.base import BaseStore
 
-from deerflow.config.app_config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.runtime.store._sqlite_utils import ensure_sqlite_parent_dir, resolve_sqlite_conn_str
 
 logger = logging.getLogger(__name__)
@@ -115,19 +115,10 @@ def get_store() -> BaseStore:
     if _store is not None:
         return _store
 
-    # Lazily load app config, mirroring the checkpointer singleton pattern so
-    # that tests that set the global checkpointer config explicitly remain isolated.
-    from deerflow.config.app_config import _app_config
-    from deerflow.config.checkpointer_config import get_checkpointer_config
-
-    config = get_checkpointer_config()
-
-    if config is None and _app_config is None:
-        try:
-            get_app_config()
-        except FileNotFoundError:
-            pass
-        config = get_checkpointer_config()
+    try:
+        config = AppConfig.current().checkpointer
+    except (LookupError, FileNotFoundError):
+        config = None
 
     if config is None:
         from langgraph.store.memory import InMemoryStore
@@ -176,7 +167,7 @@ def store_context() -> Iterator[BaseStore]:
     Yields an :class:`~langgraph.store.memory.InMemoryStore` when no
     checkpointer is configured in *config.yaml*.
     """
-    config = get_app_config()
+    config = AppConfig.current()
     if config.checkpointer is None:
         from langgraph.store.memory import InMemoryStore
 

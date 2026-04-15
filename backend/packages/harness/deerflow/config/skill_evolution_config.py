@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SkillEvolutionConfig(BaseModel):
     """Configuration for agent-managed skill evolution."""
+
+    model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(
         default=False,

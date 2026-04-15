@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+
+from deerflow.config.app_config import AppConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -331,7 +333,7 @@ class TestMemoryFilePath:
 
         with (
             patch("deerflow.agents.memory.storage.get_paths", return_value=_make_paths(tmp_path)),
-            patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")),
+            patch.object(AppConfig, "current", return_value=MagicMock(memory=MemoryConfig(storage_path=""))),
         ):
             storage = FileMemoryStorage()
             path = storage._get_memory_file_path(None)
@@ -344,7 +346,7 @@ class TestMemoryFilePath:
 
         with (
             patch("deerflow.agents.memory.storage.get_paths", return_value=_make_paths(tmp_path)),
-            patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")),
+            patch.object(AppConfig, "current", return_value=MagicMock(memory=MemoryConfig(storage_path=""))),
         ):
             storage = FileMemoryStorage()
             path = storage._get_memory_file_path("code-reviewer")
@@ -356,7 +358,7 @@ class TestMemoryFilePath:
 
         with (
             patch("deerflow.agents.memory.storage.get_paths", return_value=_make_paths(tmp_path)),
-            patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")),
+            patch.object(AppConfig, "current", return_value=MagicMock(memory=MemoryConfig(storage_path=""))),
         ):
             storage = FileMemoryStorage()
             path_global = storage._get_memory_file_path(None)

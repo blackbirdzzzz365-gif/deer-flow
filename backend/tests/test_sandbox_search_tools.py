@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
+from deerflow.config.app_config import AppConfig
 from deerflow.sandbox.local.local_sandbox import LocalSandbox
 from deerflow.sandbox.search import GrepMatch, find_glob_matches, find_grep_matches
 from deerflow.sandbox.tools import glob_tool, grep_tool
@@ -104,7 +105,7 @@ def test_grep_tool_truncates_results(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: LocalSandbox(id="local"))
     # Prevent config.yaml tool config from overriding the caller-supplied max_results=2.
-    monkeypatch.setattr("deerflow.sandbox.tools.get_app_config", lambda: SimpleNamespace(get_tool_config=lambda name: None))
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: SimpleNamespace(get_tool_config=lambda name: None)))
 
     result = grep_tool.func(
         runtime=runtime,
@@ -325,8 +326,8 @@ def test_glob_tool_honors_smaller_requested_max_results(tmp_path, monkeypatch) -
 
     monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: LocalSandbox(id="local"))
     monkeypatch.setattr(
-        "deerflow.sandbox.tools.get_app_config",
-        lambda: SimpleNamespace(get_tool_config=lambda name: SimpleNamespace(model_extra={"max_results": 50})),
+        AppConfig, "current",
+        staticmethod(lambda: SimpleNamespace(get_tool_config=lambda name: SimpleNamespace(model_extra={"max_results": 50}))),
     )
 
     result = glob_tool.func(

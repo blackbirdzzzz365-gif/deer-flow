@@ -2,7 +2,7 @@ import logging
 
 from langchain.chat_models import BaseChatModel
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.reflection import resolve_class
 from deerflow.tracing import build_tracing_callbacks
 
@@ -39,7 +39,7 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
     Returns:
         A chat model instance.
     """
-    config = get_app_config()
+    config = AppConfig.current()
     if name is None:
         name = config.models[0].name
     model_config = config.get_model_config(name)

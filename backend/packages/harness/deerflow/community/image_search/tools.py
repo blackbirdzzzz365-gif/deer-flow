@@ -7,7 +7,7 @@ import logging
 
 from langchain.tools import tool
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def image_search_tool(
         type_image: Image type filter. Options: "photo", "clipart", "gif", "transparent", "line". Use "photo" for realistic references.
         layout: Layout filter. Options: "Square", "Tall", "Wide". Choose based on your generation needs.
     """
-    config = get_app_config().get_tool_config("image_search")
+    config = AppConfig.current().get_tool_config("image_search")
 
     # Override max_results from config if set
     if config is not None and "max_results" in config.model_extra:

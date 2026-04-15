@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ async def scan_skill_content(content: str, *, executable: bool = False, location
     prompt = f"Location: {location}\nExecutable: {str(executable).lower()}\n\nReview this content:\n-----\n{content}\n-----"
 
     try:
-        config = get_app_config()
+        config = AppConfig.current()
         model_name = config.skill_evolution.moderation_model_name
         model = create_chat_model(name=model_name, thinking_enabled=False) if model_name else create_chat_model(thinking_enabled=False)
         response = await model.ainvoke(

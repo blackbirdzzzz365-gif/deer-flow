@@ -24,6 +24,8 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
+from deerflow.config.deer_flow_context import DeerFlowContext
+
 logger = logging.getLogger(__name__)
 
 # Defaults — can be overridden via constructor
@@ -159,12 +161,9 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         self._history: OrderedDict[str, list[str]] = OrderedDict()
         self._warned: dict[str, set[str]] = defaultdict(set)
 
-    def _get_thread_id(self, runtime: Runtime) -> str:
+    def _get_thread_id(self, runtime: Runtime[DeerFlowContext]) -> str:
         """Extract thread_id from runtime context for per-thread tracking."""
-        thread_id = runtime.context.get("thread_id") if runtime.context else None
-        if thread_id:
-            return thread_id
-        return "default"
+        return runtime.context.thread_id or "default"
 
     def _evict_if_needed(self) -> None:
         """Evict least recently used threads if over the limit.
@@ -288,11 +287,11 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         return None
 
     @override
-    def after_model(self, state: AgentState, runtime: Runtime) -> dict | None:
+    def after_model(self, state: AgentState, runtime: Runtime[DeerFlowContext]) -> dict | None:
         return self._apply(state, runtime)
 
     @override
-    async def aafter_model(self, state: AgentState, runtime: Runtime) -> dict | None:
+    async def aafter_model(self, state: AgentState, runtime: Runtime[DeerFlowContext]) -> dict | None:
         return self._apply(state, runtime)
 
     def reset(self, thread_id: str | None = None) -> None:

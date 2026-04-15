@@ -3,7 +3,7 @@
 import pytest
 
 from deerflow.agents.middlewares.title_middleware import TitleMiddleware
-from deerflow.config.title_config import TitleConfig, get_title_config, set_title_config
+from deerflow.config.title_config import TitleConfig
 
 
 class TestTitleConfig:
@@ -44,21 +44,6 @@ class TestTitleConfig:
         with pytest.raises(ValueError):
             TitleConfig(max_chars=201)
 
-    def test_get_set_config(self):
-        """Test global config getter and setter."""
-        original_config = get_title_config()
-
-        # Set new config
-        new_config = TitleConfig(enabled=False, max_words=10)
-        set_title_config(new_config)
-
-        # Verify it was set
-        assert get_title_config().enabled is False
-        assert get_title_config().max_words == 10
-
-        # Restore original config
-        set_title_config(original_config)
-
 
 class TestTitleMiddleware:
     """Tests for TitleMiddleware."""
@@ -68,23 +53,3 @@ class TestTitleMiddleware:
         middleware = TitleMiddleware()
         assert middleware is not None
         assert middleware.state_schema is not None
-
-    # TODO: Add integration tests with mock Runtime
-    # def test_should_generate_title(self):
-    #     """Test title generation trigger logic."""
-    #     pass
-
-    # def test_generate_title(self):
-    #     """Test title generation."""
-    #     pass
-
-    # def test_after_agent_hook(self):
-    #     """Test after_agent hook."""
-    #     pass
-
-
-# TODO: Add integration tests
-# - Test with real LangGraph runtime
-# - Test title persistence with checkpointer
-# - Test fallback behavior when LLM fails
-# - Test concurrent title generation

@@ -23,7 +23,7 @@ from collections.abc import AsyncIterator
 
 from langgraph.store.base import BaseStore
 
-from deerflow.config.app_config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.runtime.store.provider import POSTGRES_CONN_REQUIRED, POSTGRES_STORE_INSTALL, SQLITE_STORE_INSTALL, ensure_sqlite_parent_dir, resolve_sqlite_conn_str
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ async def make_store() -> AsyncIterator[BaseStore]:
     Yields an :class:`~langgraph.store.memory.InMemoryStore` when no
     ``checkpointer`` section is configured (emits a WARNING in that case).
     """
-    config = get_app_config()
+    config = AppConfig.current()
 
     if config.checkpointer is None:
         from langgraph.store.memory import InMemoryStore

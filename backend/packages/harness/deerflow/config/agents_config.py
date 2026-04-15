@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from deerflow.config.paths import get_paths
 
@@ -17,6 +17,8 @@ AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 
 class AgentConfig(BaseModel):
     """Configuration for a custom agent."""
+
+    model_config = ConfigDict(frozen=True)
 
     name: str
     description: str = ""

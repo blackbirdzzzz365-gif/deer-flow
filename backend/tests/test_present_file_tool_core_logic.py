@@ -3,13 +3,24 @@
 import importlib
 from types import SimpleNamespace
 
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
+from deerflow.config.sandbox_config import SandboxConfig
+
 present_file_tool_module = importlib.import_module("deerflow.tools.builtins.present_file_tool")
+
+
+def _make_context(thread_id: str) -> DeerFlowContext:
+    return DeerFlowContext(
+        app_config=AppConfig(sandbox=SandboxConfig(use="test")),
+        thread_id=thread_id,
+    )
 
 
 def _make_runtime(outputs_path: str) -> SimpleNamespace:
     return SimpleNamespace(
         state={"thread_data": {"outputs_path": outputs_path}},
-        context={"thread_id": "thread-1"},
+        context=_make_context("thread-1"),
     )
 
 

@@ -66,9 +66,9 @@ class ChannelService:
     @classmethod
     def from_app_config(cls) -> ChannelService:
         """Create a ChannelService from the application config."""
-        from deerflow.config.app_config import get_app_config
+        from deerflow.config.app_config import AppConfig
 
-        config = get_app_config()
+        config = AppConfig.current()
         channels_config = {}
         # extra fields are allowed by AppConfig (extra="allow")
         extra = config.model_extra or {}

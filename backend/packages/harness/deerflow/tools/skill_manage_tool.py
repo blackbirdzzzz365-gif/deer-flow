@@ -45,9 +45,7 @@ def _get_lock(name: str) -> asyncio.Lock:
 def _get_thread_id(runtime: ToolRuntime[ContextT, ThreadState] | None) -> str | None:
     if runtime is None:
         return None
-    if runtime.context and runtime.context.get("thread_id"):
-        return runtime.context.get("thread_id")
-    return runtime.config.get("configurable", {}).get("thread_id")
+    return runtime.context.thread_id or None
 
 
 def _history_record(*, action: str, file_path: str, prev_content: str | None, new_content: str | None, thread_id: str | None, scanner: dict[str, Any]) -> dict[str, Any]:

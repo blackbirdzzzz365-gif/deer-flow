@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from langchain_core.messages import HumanMessage
 
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
 from deerflow.runtime.serialization import serialize
 from deerflow.runtime.stream_bridge import StreamBridge
 
@@ -162,17 +164,14 @@ async def run_agent(
 
         # 3. Build the agent
         from langchain_core.runnables import RunnableConfig
-        from langgraph.runtime import Runtime
 
-        # Inject runtime context so middlewares can access thread_id
-        # (langgraph-cli does this automatically; we must do it manually)
-        runtime = Runtime(context={"thread_id": thread_id}, store=store)
-        # If the caller already set a ``context`` key (LangGraph >= 0.6.0
-        # prefers it over ``configurable`` for thread-level data), make
-        # sure ``thread_id`` is available there too.
-        if "context" in config and isinstance(config["context"], dict):
-            config["context"].setdefault("thread_id", thread_id)
-        config.setdefault("configurable", {})["__pregel_runtime"] = runtime
+        # Construct typed context for the agent run.
+        # LangGraph's astream(context=...) injects this into Runtime.context
+        # so middleware/tools can access it via resolve_context().
+        deer_flow_context = DeerFlowContext(
+            app_config=AppConfig.current(),
+            thread_id=thread_id,
+        )
 
         # Inject RunJournal as a LangChain callback handler.
         # on_llm_end captures token usage; on_chain_start/end captures lifecycle.
@@ -224,7 +223,7 @@ async def run_agent(
         if len(lg_modes) == 1 and not stream_subgraphs:
             # Single mode, no subgraphs: astream yields raw chunks
             single_mode = lg_modes[0]
-            async for chunk in agent.astream(graph_input, config=runnable_config, stream_mode=single_mode):
+            async for chunk in agent.astream(graph_input, config=runnable_config, context=deer_flow_context, stream_mode=single_mode):
                 if record.abort_event.is_set():
                     logger.info("Run %s abort requested — stopping", run_id)
                     break
@@ -235,6 +234,7 @@ async def run_agent(
             async for item in agent.astream(
                 graph_input,
                 config=runnable_config,
+                context=deer_flow_context,
                 stream_mode=lg_modes,
                 subgraphs=stream_subgraphs,
             ):

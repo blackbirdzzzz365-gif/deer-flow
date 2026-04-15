@@ -24,7 +24,7 @@ from collections.abc import AsyncIterator
 
 from langgraph.types import Checkpointer
 
-from deerflow.config.app_config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.runtime.checkpointer.provider import (
     POSTGRES_CONN_REQUIRED,
     POSTGRES_INSTALL,
@@ -138,7 +138,7 @@ async def make_checkpointer() -> AsyncIterator[Checkpointer]:
     3. Default InMemorySaver
     """
 
-    config = get_app_config()
+    config = AppConfig.current()
 
     # Legacy: standalone checkpointer config takes precedence
     if config.checkpointer is not None:

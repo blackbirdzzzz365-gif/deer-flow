@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class VolumeMountConfig(BaseModel):
     """Configuration for a volume mount."""
 
+    model_config = ConfigDict(frozen=True)
+
     host_path: str = Field(..., description="Path on the host machine")
     container_path: str = Field(..., description="Path inside the container")
     read_only: bool = Field(default=False, description="Whether the mount is read-only")
@@ -80,4 +82,4 @@ class SandboxConfig(BaseModel):
         description="Maximum characters to keep from ls tool output. Output exceeding this limit is head-truncated. Set to 0 to disable truncation.",
     )
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", frozen=True)

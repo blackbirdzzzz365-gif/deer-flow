@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.skills.loader import load_skills
 from deerflow.skills.validation import _validate_skill_frontmatter
 
@@ -21,7 +21,7 @@ _SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def get_skills_root_dir() -> Path:
-    return get_app_config().skills.get_skills_path()
+    return AppConfig.current().skills.get_skills_path()
 
 
 def get_public_skills_dir() -> Path:

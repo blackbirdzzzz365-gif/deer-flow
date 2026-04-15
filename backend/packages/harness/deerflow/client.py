@@ -36,8 +36,9 @@ from deerflow.agents.lead_agent.agent import _build_middlewares
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import AGENT_NAME_PATTERN
-from deerflow.config.app_config import get_app_config, reload_app_config
-from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
+from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig
 from deerflow.config.paths import get_paths
 from deerflow.models import create_chat_model
 from deerflow.runtime.user_context import get_effective_user_id
@@ -142,8 +143,8 @@ class DeerFlowClient:
             middlewares: Optional list of custom middlewares to inject into the agent.
         """
         if config_path is not None:
-            reload_app_config(config_path)
-        self._app_config = get_app_config()
+            AppConfig.init(AppConfig.from_file(config_path))
+        self._app_config = AppConfig.current()
 
         if agent_name is not None and not AGENT_NAME_PATTERN.match(agent_name):
             raise ValueError(f"Invalid agent name '{agent_name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
@@ -552,9 +553,7 @@ class DeerFlowClient:
         self._ensure_agent(config)
 
         state: dict[str, Any] = {"messages": [HumanMessage(content=message)]}
-        context = {"thread_id": thread_id}
-        if self._agent_name:
-            context["agent_name"] = self._agent_name
+        context = DeerFlowContext(app_config=self._app_config, thread_id=thread_id, agent_name=self._agent_name)
 
         seen_ids: set[str] = set()
         # Cross-mode handoff: ids already streamed via LangGraph ``messages``
@@ -817,8 +816,8 @@ class DeerFlowClient:
             Dict with "mcp_servers" key mapping server name to config,
             matching the Gateway API ``McpConfigResponse`` schema.
         """
-        config = get_extensions_config()
-        return {"mcp_servers": {name: server.model_dump() for name, server in config.mcp_servers.items()}}
+        ext = AppConfig.current().extensions
+        return {"mcp_servers": {name: server.model_dump() for name, server in ext.mcp_servers.items()}}
 
     def update_mcp_config(self, mcp_servers: dict[str, dict]) -> dict:
         """Update MCP server configurations.
@@ -840,18 +839,19 @@ class DeerFlowClient:
         if config_path is None:
             raise FileNotFoundError("Cannot locate extensions_config.json. Set DEER_FLOW_EXTENSIONS_CONFIG_PATH or ensure it exists in the project root.")
 
-        current_config = get_extensions_config()
+        current_ext = AppConfig.current().extensions
 
         config_data = {
             "mcpServers": mcp_servers,
-            "skills": {name: {"enabled": skill.enabled} for name, skill in current_config.skills.items()},
+            "skills": {name: {"enabled": skill.enabled} for name, skill in current_ext.skills.items()},
         }
 
         self._atomic_write_json(config_path, config_data)
 
         self._agent = None
         self._agent_config_key = None
-        reloaded = reload_extensions_config()
+        AppConfig.init(AppConfig.from_file())
+        reloaded = AppConfig.current().extensions
         return {"mcp_servers": {name: server.model_dump() for name, server in reloaded.mcp_servers.items()}}
 
     # ------------------------------------------------------------------
@@ -905,19 +905,19 @@ class DeerFlowClient:
         if config_path is None:
             raise FileNotFoundError("Cannot locate extensions_config.json. Set DEER_FLOW_EXTENSIONS_CONFIG_PATH or ensure it exists in the project root.")
 
-        extensions_config = get_extensions_config()
-        extensions_config.skills[name] = SkillStateConfig(enabled=enabled)
+        ext = AppConfig.current().extensions
+        ext.skills[name] = SkillStateConfig(enabled=enabled)
 
         config_data = {
-            "mcpServers": {n: s.model_dump() for n, s in extensions_config.mcp_servers.items()},
-            "skills": {n: {"enabled": sc.enabled} for n, sc in extensions_config.skills.items()},
+            "mcpServers": {n: s.model_dump() for n, s in ext.mcp_servers.items()},
+            "skills": {n: {"enabled": sc.enabled} for n, sc in ext.skills.items()},
         }
 
         self._atomic_write_json(config_path, config_data)
 
         self._agent = None
         self._agent_config_key = None
-        reload_extensions_config()
+        AppConfig.init(AppConfig.from_file())
 
         updated = next((s for s in load_skills(enabled_only=False) if s.name == name), None)
         if updated is None:
@@ -1000,9 +1000,7 @@ class DeerFlowClient:
         Returns:
             Memory config dict.
         """
-        from deerflow.config.memory_config import get_memory_config
-
-        config = get_memory_config()
+        config = AppConfig.current().memory
         return {
             "enabled": config.enabled,
             "storage_path": config.storage_path,

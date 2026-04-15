@@ -4,12 +4,13 @@ from types import SimpleNamespace
 import anyio
 
 from deerflow.agents.lead_agent import prompt as prompt_module
+from deerflow.config.app_config import AppConfig
 from deerflow.skills.types import Skill
 
 
 def test_build_custom_mounts_section_returns_empty_when_no_mounts(monkeypatch):
     config = SimpleNamespace(sandbox=SimpleNamespace(mounts=[]))
-    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: config))
 
     assert prompt_module._build_custom_mounts_section() == ""
 
@@ -20,7 +21,7 @@ def test_build_custom_mounts_section_lists_configured_mounts(monkeypatch):
         SimpleNamespace(container_path="/mnt/reference", read_only=True),
     ]
     config = SimpleNamespace(sandbox=SimpleNamespace(mounts=mounts))
-    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: config))
 
     section = prompt_module._build_custom_mounts_section()
 
@@ -37,7 +38,7 @@ def test_apply_prompt_template_includes_custom_mounts(monkeypatch):
         sandbox=SimpleNamespace(mounts=mounts),
         skills=SimpleNamespace(container_path="/mnt/skills"),
     )
-    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: config))
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
     monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda: "")
     monkeypatch.setattr(prompt_module, "_build_acp_section", lambda: "")
@@ -55,7 +56,7 @@ def test_apply_prompt_template_includes_relative_path_guidance(monkeypatch):
         sandbox=SimpleNamespace(mounts=[]),
         skills=SimpleNamespace(container_path="/mnt/skills"),
     )
-    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: config))
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
     monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda: "")
     monkeypatch.setattr(prompt_module, "_build_acp_section", lambda: "")

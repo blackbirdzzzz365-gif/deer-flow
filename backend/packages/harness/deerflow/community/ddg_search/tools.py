@@ -7,7 +7,7 @@ import logging
 
 from langchain.tools import tool
 
-from deerflow.config import get_app_config
+from deerflow.config.app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def web_search_tool(
         query: Search keywords describing what you want to find. Be specific for better results.
         max_results: Maximum number of results to return. Default is 5.
     """
-    config = get_app_config().get_tool_config("web_search")
+    config = AppConfig.current().get_tool_config("web_search")
 
     # Override max_results from config if set
     if config is not None and "max_results" in config.model_extra:

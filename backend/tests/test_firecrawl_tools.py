@@ -3,10 +3,12 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from deerflow.config.app_config import AppConfig
+
 
 class TestWebSearchTool:
     @patch("deerflow.community.firecrawl.tools.FirecrawlApp")
-    @patch("deerflow.community.firecrawl.tools.get_app_config")
+    @patch.object(AppConfig, "current")
     def test_search_uses_web_search_config(self, mock_get_app_config, mock_firecrawl_cls):
         search_config = MagicMock()
         search_config.model_extra = {"api_key": "firecrawl-search-key", "max_results": 7}
@@ -36,7 +38,7 @@ class TestWebSearchTool:
 
 class TestWebFetchTool:
     @patch("deerflow.community.firecrawl.tools.FirecrawlApp")
-    @patch("deerflow.community.firecrawl.tools.get_app_config")
+    @patch.object(AppConfig, "current")
     def test_fetch_uses_web_fetch_config(self, mock_get_app_config, mock_firecrawl_cls):
         fetch_config = MagicMock()
         fetch_config.model_extra = {"api_key": "firecrawl-fetch-key"}

@@ -25,7 +25,7 @@ from collections.abc import Iterator
 
 from langgraph.types import Checkpointer
 
-from deerflow.config.app_config import get_app_config
+from deerflow.config.app_config import AppConfig
 from deerflow.config.checkpointer_config import CheckpointerConfig
 from deerflow.runtime.store._sqlite_utils import resolve_sqlite_conn_str
 
@@ -113,25 +113,10 @@ def get_checkpointer() -> Checkpointer:
     if _checkpointer is not None:
         return _checkpointer
 
-    # Ensure app config is loaded before checking checkpointer config
-    # This prevents returning InMemorySaver when config.yaml actually has a checkpointer section
-    # but hasn't been loaded yet
-    from deerflow.config.app_config import _app_config
-    from deerflow.config.checkpointer_config import get_checkpointer_config
-
-    config = get_checkpointer_config()
-
-    if config is None and _app_config is None:
-        # Only load app config lazily when neither the app config nor an explicit
-        # checkpointer config has been initialized yet. This keeps tests that
-        # intentionally set the global checkpointer config isolated from any
-        # ambient config.yaml on disk.
-        try:
-            get_app_config()
-        except FileNotFoundError:
-            # In test environments without config.yaml, this is expected.
-            pass
-        config = get_checkpointer_config()
+    try:
+        config = AppConfig.current().checkpointer
+    except (LookupError, FileNotFoundError):
+        config = None
     if config is None:
         from langgraph.checkpoint.memory import InMemorySaver
 
@@ -180,7 +165,7 @@ def checkpointer_context() -> Iterator[Checkpointer]:
     Yields an ``InMemorySaver`` when no checkpointer is configured in *config.yaml*.
     """
 
-    config = get_app_config()
+    config = AppConfig.current()
     if config.checkpointer is None:
         from langgraph.checkpoint.memory import InMemorySaver
 

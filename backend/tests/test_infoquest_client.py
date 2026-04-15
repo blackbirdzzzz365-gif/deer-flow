@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from deerflow.community.infoquest import tools
 from deerflow.community.infoquest.infoquest_client import InfoQuestClient
+from deerflow.config.app_config import AppConfig
 
 
 class TestInfoQuestClient:
@@ -149,8 +150,8 @@ class TestInfoQuestClient:
         mock_get_client.assert_called_once()
         mock_client.fetch.assert_called_once_with("https://example.com")
 
-    @patch("deerflow.community.infoquest.tools.get_app_config")
-    def test_get_infoquest_client(self, mock_get_app_config):
+    @patch.object(AppConfig, "current")
+    def test_get_infoquest_client(self, mock_get):
         """Test _get_infoquest_client function with config."""
         mock_config = MagicMock()
         # Add image_search config to the side_effect
@@ -159,7 +160,7 @@ class TestInfoQuestClient:
             MagicMock(model_extra={"fetch_time": 10, "timeout": 30, "navigation_timeout": 60}),  # web_fetch config
             MagicMock(model_extra={"image_search_time_range": 7, "image_size": "l"}),  # image_search config
         ]
-        mock_get_app_config.return_value = mock_config
+        mock_get.return_value = mock_config
 
         client = tools._get_infoquest_client()
 

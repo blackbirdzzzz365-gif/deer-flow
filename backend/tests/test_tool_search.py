@@ -6,7 +6,8 @@ import sys
 import pytest
 from langchain_core.tools import tool as langchain_tool
 
-from deerflow.config.tool_search_config import ToolSearchConfig, load_tool_search_config_from_dict
+from deerflow.config.app_config import AppConfig
+from deerflow.config.tool_search_config import ToolSearchConfig
 from deerflow.tools.builtins.tool_search import (
     DeferredToolRegistry,
     get_deferred_registry,
@@ -62,12 +63,12 @@ class TestToolSearchConfig:
         config = ToolSearchConfig(enabled=True)
         assert config.enabled is True
 
-    def test_load_from_dict(self):
-        config = load_tool_search_config_from_dict({"enabled": True})
+    def test_validate_from_dict(self):
+        config = ToolSearchConfig.model_validate({"enabled": True})
         assert config.enabled is True
 
-    def test_load_from_empty_dict(self):
-        config = load_tool_search_config_from_dict({})
+    def test_validate_from_empty_dict(self):
+        config = ToolSearchConfig.model_validate({})
         assert config.enabled is False
 
 
@@ -263,7 +264,7 @@ class TestDeferredToolsPromptSection:
 
         mock_config = MagicMock()
         mock_config.tool_search = ToolSearchConfig()  # disabled by default
-        monkeypatch.setattr("deerflow.config.get_app_config", lambda: mock_config)
+        monkeypatch.setattr(AppConfig, "current", staticmethod(lambda: mock_config))
 
     def test_empty_when_disabled(self):
         from deerflow.agents.lead_agent.prompt import get_deferred_tools_prompt_section
@@ -274,26 +275,20 @@ class TestDeferredToolsPromptSection:
 
     def test_empty_when_enabled_but_no_registry(self, monkeypatch):
         from deerflow.agents.lead_agent.prompt import get_deferred_tools_prompt_section
-        from deerflow.config import get_app_config
-
-        monkeypatch.setattr(get_app_config().tool_search, "enabled", True)
+        AppConfig.current().tool_search = ToolSearchConfig(enabled=True)
         section = get_deferred_tools_prompt_section()
         assert section == ""
 
     def test_empty_when_enabled_but_empty_registry(self, monkeypatch):
         from deerflow.agents.lead_agent.prompt import get_deferred_tools_prompt_section
-        from deerflow.config import get_app_config
-
-        monkeypatch.setattr(get_app_config().tool_search, "enabled", True)
+        AppConfig.current().tool_search = ToolSearchConfig(enabled=True)
         set_deferred_registry(DeferredToolRegistry())
         section = get_deferred_tools_prompt_section()
         assert section == ""
 
     def test_lists_tool_names(self, registry, monkeypatch):
         from deerflow.agents.lead_agent.prompt import get_deferred_tools_prompt_section
-        from deerflow.config import get_app_config
-
-        monkeypatch.setattr(get_app_config().tool_search, "enabled", True)
+        AppConfig.current().tool_search = ToolSearchConfig(enabled=True)
         set_deferred_registry(registry)
         section = get_deferred_tools_prompt_section()
         assert "<available-deferred-tools>" in section

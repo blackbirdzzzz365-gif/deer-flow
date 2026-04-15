@@ -24,9 +24,9 @@ def get_subagent_config(name: str) -> SubagentConfig | None:
         return None
 
     # Apply timeout override from config.yaml (lazy import to avoid circular deps)
-    from deerflow.config.subagents_config import get_subagents_app_config
+    from deerflow.config.app_config import AppConfig
 
-    app_config = get_subagents_app_config()
+    app_config = AppConfig.current().subagents
     effective_timeout = app_config.get_timeout_for(name)
     effective_max_turns = app_config.get_max_turns_for(name, config.max_turns)
 

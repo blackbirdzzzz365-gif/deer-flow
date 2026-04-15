@@ -3,6 +3,7 @@ import logging
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, SummarizationMiddleware
 from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
 
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.agents.middlewares.clarification_middleware import ClarificationMiddleware
@@ -16,8 +17,8 @@ from deerflow.agents.middlewares.tool_error_handling_middleware import build_lea
 from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddleware
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import load_agent_config
-from deerflow.config.app_config import get_app_config
-from deerflow.config.summarization_config import get_summarization_config
+from deerflow.config.app_config import AppConfig
+from deerflow.config.deer_flow_context import DeerFlowContext
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _resolve_model_name(requested_model_name: str | None = None) -> str:
     """Resolve a runtime model name safely, falling back to default if invalid. Returns None if no models are configured."""
-    app_config = get_app_config()
+    app_config = AppConfig.current()
     default_model_name = app_config.models[0].name if app_config.models else None
     if default_model_name is None:
         raise ValueError("No chat models are configured. Please configure at least one model in config.yaml.")
@@ -40,7 +41,7 @@ def _resolve_model_name(requested_model_name: str | None = None) -> str:
 
 def _create_summarization_middleware() -> SummarizationMiddleware | None:
     """Create and configure the summarization middleware from config."""
-    config = get_summarization_config()
+    config = AppConfig.current().summarization
 
     if not config.enabled:
         return None
@@ -232,7 +233,7 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
         middlewares.append(todo_list_middleware)
 
     # Add TokenUsageMiddleware when token_usage tracking is enabled
-    if get_app_config().token_usage.enabled:
+    if AppConfig.current().token_usage.enabled:
         middlewares.append(TokenUsageMiddleware())
 
     # Add TitleMiddleware
@@ -243,7 +244,7 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
 
     # Add ViewImageMiddleware only if the current model supports vision.
     # Use the resolved runtime model_name from make_lead_agent to avoid stale config values.
-    app_config = get_app_config()
+    app_config = AppConfig.current()
     model_config = app_config.get_model_config(model_name) if model_name else None
     if model_config is not None and model_config.supports_vision:
         middlewares.append(ViewImageMiddleware())
@@ -272,7 +273,7 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
     return middlewares
 
 
-def make_lead_agent(config: RunnableConfig):
+def make_lead_agent(config: RunnableConfig) -> CompiledStateGraph:
     # Lazy import to avoid circular dependency
     from deerflow.tools import get_available_tools
     from deerflow.tools.builtins import setup_agent
@@ -295,7 +296,7 @@ def make_lead_agent(config: RunnableConfig):
     # Final model name resolution: request → agent config → global default, with fallback for unknown names
     model_name = _resolve_model_name(requested_model_name or agent_model_name)
 
-    app_config = get_app_config()
+    app_config = AppConfig.current()
     model_config = app_config.get_model_config(model_name)
 
     if model_config is None:
@@ -338,6 +339,7 @@ def make_lead_agent(config: RunnableConfig):
             middleware=_build_middlewares(config, model_name=model_name),
             system_prompt=apply_prompt_template(subagent_enabled=subagent_enabled, max_concurrent_subagents=max_concurrent_subagents, available_skills=set(["bootstrap"])),
             state_schema=ThreadState,
+            context_schema=DeerFlowContext,
         )
 
     # Default lead agent (unchanged behavior)
@@ -349,4 +351,5 @@ def make_lead_agent(config: RunnableConfig):
             subagent_enabled=subagent_enabled, max_concurrent_subagents=max_concurrent_subagents, agent_name=agent_name, available_skills=set(agent_config.skills) if agent_config and agent_config.skills is not None else None
         ),
         state_schema=ThreadState,
+        context_schema=DeerFlowContext,
     )
