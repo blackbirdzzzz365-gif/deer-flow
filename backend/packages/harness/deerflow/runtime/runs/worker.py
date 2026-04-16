@@ -54,9 +54,7 @@ class RunContext:
     run_events_config: Any | None = field(default=None)
     thread_store: Any | None = field(default=None)
     follow_up_to_run_id: str | None = field(default=None)
-    # Phase 2: app-level config flows through RunContext so Worker can build
-    # DeerFlowContext without consulting the process-global.
-    app_config: Any | None = field(default=None)
+    app_config: AppConfig | None = field(default=None)
 
 
 async def run_agent(

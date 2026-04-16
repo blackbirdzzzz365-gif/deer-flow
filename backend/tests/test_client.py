@@ -85,7 +85,6 @@ class TestClientInit:
                 DeerFlowClient(agent_name="../path/traversal")
 
     def test_custom_config_path(self, mock_app_config):
-        # Phase 2: DeerFlowClient stores config locally in self._app_config
         # rather than touching AppConfig.init() / process-global state.
         with patch.object(AppConfig, "from_file", return_value=mock_app_config) as mock_from_file:
             client = DeerFlowClient(config_path="/tmp/custom.yaml")
@@ -1090,7 +1089,6 @@ class TestMcpConfig:
         ext_config = MagicMock()
         ext_config.mcp_servers = {"github": server}
 
-        # Phase 2: client reads from self._app_config, not AppConfig.current()
         client._app_config = MagicMock(extensions=ext_config)
         result = client.get_mcp_config()
 
@@ -1116,7 +1114,6 @@ class TestMcpConfig:
             # Pre-set agent to verify it gets invalidated
             client._agent = MagicMock()
 
-            # Phase 2: initial config is stored on the client, not process-global
             client._app_config = MagicMock(extensions=current_config)
 
             with (
@@ -1330,7 +1327,6 @@ class TestMemoryManagement:
         app_cfg = MagicMock()
         app_cfg.memory = mem_config
 
-        # Phase 2: client reads from self._app_config
         client._app_config = app_cfg
         result = client.get_memory_config()
 
@@ -1351,7 +1347,6 @@ class TestMemoryManagement:
         app_cfg.memory = mem_config
         data = {"version": "1.0", "facts": []}
 
-        # Phase 2: client reads from self._app_config
         client._app_config = app_cfg
         with patch("deerflow.agents.memory.updater.get_memory_data", return_value=data):
             result = client.get_memory_status()
@@ -2030,7 +2025,6 @@ class TestScenarioMemoryWorkflow:
 
         app_cfg = MagicMock()
         app_cfg.memory = config
-        # Phase 2: client reads from self._app_config
         client._app_config = app_cfg
         with patch("deerflow.agents.memory.updater.get_memory_data", return_value=updated_data):
             status = client.get_memory_status()
@@ -2315,7 +2309,6 @@ class TestGatewayConformance:
         ext_config = MagicMock()
         ext_config.mcp_servers = {"test": server}
 
-        # Phase 2: client reads from self._app_config
         client._app_config = MagicMock(extensions=ext_config)
         result = client.get_mcp_config()
 
@@ -2341,7 +2334,6 @@ class TestGatewayConformance:
         config_file = tmp_path / "extensions_config.json"
         config_file.write_text("{}")
 
-        # Phase 2: client reads from self._app_config
         client._app_config = MagicMock(extensions=ext_config)
         with (
             patch("deerflow.client.ExtensionsConfig.resolve_config_path", return_value=config_file),
@@ -2379,7 +2371,6 @@ class TestGatewayConformance:
         app_cfg = MagicMock()
         app_cfg.memory = mem_cfg
 
-        # Phase 2: client reads from self._app_config
         client._app_config = app_cfg
         result = client.get_memory_config()
 
@@ -2415,7 +2406,6 @@ class TestGatewayConformance:
             "facts": [],
         }
 
-        # Phase 2: client reads from self._app_config
         client._app_config = app_cfg
         with patch("deerflow.agents.memory.updater.get_memory_data", return_value=memory_data):
             result = client.get_memory_status()

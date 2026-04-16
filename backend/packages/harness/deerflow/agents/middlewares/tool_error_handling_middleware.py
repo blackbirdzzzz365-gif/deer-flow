@@ -72,7 +72,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
 
 def _build_runtime_middlewares(
     *,
-    app_config: "AppConfig | None" = None,
+    app_config: "AppConfig",
     include_uploads: bool,
     include_dangling_tool_call_patch: bool,
     lazy_init: bool = True,
@@ -81,10 +81,6 @@ def _build_runtime_middlewares(
     from deerflow.agents.middlewares.llm_error_handling_middleware import LLMErrorHandlingMiddleware
     from deerflow.agents.middlewares.thread_data_middleware import ThreadDataMiddleware
     from deerflow.sandbox.middleware import SandboxMiddleware
-    from deerflow.config.app_config import AppConfig
-
-    if app_config is None:
-        app_config = AppConfig.current()
 
     middlewares: list[AgentMiddleware] = [
         ThreadDataMiddleware(lazy_init=lazy_init),
@@ -133,7 +129,7 @@ def _build_runtime_middlewares(
     return middlewares
 
 
-def build_lead_runtime_middlewares(*, app_config: "AppConfig | None" = None, lazy_init: bool = True) -> list[AgentMiddleware]:
+def build_lead_runtime_middlewares(*, app_config: "AppConfig", lazy_init: bool = True) -> list[AgentMiddleware]:
     """Middlewares shared by lead agent runtime before lead-only middlewares."""
     return _build_runtime_middlewares(
         app_config=app_config,

@@ -47,7 +47,12 @@ def create_chat_model(
     Returns:
         A chat model instance.
     """
-    config = app_config if app_config is not None else AppConfig.current()
+    if app_config is None:
+        # TODO(P2-10): fold into a required parameter once all callers
+        # (memory updater, summarization middleware's implicit model) thread
+        # config explicitly.
+        app_config = AppConfig.current()
+    config = app_config
     if name is None:
         name = config.models[0].name
     model_config = config.get_model_config(name)

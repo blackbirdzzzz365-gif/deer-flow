@@ -145,12 +145,10 @@ async def _migrate_orphaned_threads(store, admin_user_id: str) -> int:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
 
-    # Load config and check necessary environment variables at startup.
-    # Phase 2: explicit-passing primitive. app.state.config is the single source
-    # of truth for FastAPI request handlers via Depends(get_config). AppConfig.init()
-    # is still invoked for backward compatibility with legacy AppConfig.current()
-    # callers that haven't been migrated yet.
     try:
+        # app.state.config is the source of truth for Depends(get_config).
+        # AppConfig.init() mirrors it to the process-global for not-yet-migrated
+        # callers; both go away in P2-10 once AppConfig.current() is removed.
         app.state.config = AppConfig.from_file()
         AppConfig.init(app.state.config)
         logger.info("Configuration loaded successfully")

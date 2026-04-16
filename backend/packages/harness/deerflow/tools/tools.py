@@ -56,7 +56,11 @@ def get_available_tools(
     Returns:
         List of available tools.
     """
-    config = app_config if app_config is not None else AppConfig.current()
+    if app_config is None:
+        # TODO(P2-10): fold into a required parameter once all callers thread
+        # config explicitly (community tool factories, subagent registry, etc.).
+        app_config = AppConfig.current()
+    config = app_config
     tool_configs = [tool for tool in config.tools if groups is None or tool.group in groups]
 
     # Do not expose host bash by default when LocalSandboxProvider is active.

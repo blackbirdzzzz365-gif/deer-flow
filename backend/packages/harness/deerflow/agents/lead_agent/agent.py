@@ -210,6 +210,7 @@ Being proactive with task management demonstrates thoroughness and ensures all r
 def _build_middlewares(
     app_config: AppConfig,
     config: RunnableConfig,
+    *,
     model_name: str | None,
     agent_name: str | None = None,
     custom_middlewares: list[AgentMiddleware] | None = None,
@@ -297,6 +298,11 @@ def make_lead_agent(
     from deerflow.tools.builtins import setup_agent
 
     if app_config is None:
+        # LangGraph Server registers make_lead_agent via langgraph.json; its
+        # invocation path only hands us RunnableConfig. Until that registration
+        # layer owns its own AppConfig, we tolerate the process-global fallback
+        # here. All other entry points (DeerFlowClient, Gateway Worker) pass
+        # app_config explicitly. Remove alongside AppConfig.current() in P2-10.
         app_config = AppConfig.current()
 
     cfg = config.get("configurable", {})
