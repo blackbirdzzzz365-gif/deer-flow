@@ -1,0 +1,117 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: deerflow-nginx
+    ports:
+      - "${APP_PORT:-32026}:2026"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf.template:ro
+    environment:
+      LANGGRAPH_UPSTREAM: ${LANGGRAPH_UPSTREAM:-langgraph:2024}
+      LANGGRAPH_REWRITE: ${LANGGRAPH_REWRITE:-/}
+    command: >
+      sh -c "envsubst '$$LANGGRAPH_UPSTREAM $$LANGGRAPH_REWRITE'
+      < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+      && nginx -g 'daemon off;'"
+    depends_on:
+      - frontend
+      - gateway
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE_REF:?FRONTEND_IMAGE_REF must be set for production deploys}
+    container_name: deerflow-frontend
+    environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
+      DEER_FLOW_INTERNAL_GATEWAY_BASE_URL: http://gateway:8001
+      DEER_FLOW_INTERNAL_LANGGRAPH_BASE_URL: http://langgraph:2024
+      NODE_ENV: production
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+  gateway:
+    image: ${BACKEND_IMAGE_REF:?BACKEND_IMAGE_REF must be set for production deploys}
+    container_name: deerflow-gateway
+    command: sh -c "cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers ${GATEWAY_WORKERS:-4}"
+    volumes:
+      - ${DEER_FLOW_CONFIG_PATH:?DEER_FLOW_CONFIG_PATH must be set}:/app/backend/config.yaml:ro
+      - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH:?DEER_FLOW_EXTENSIONS_CONFIG_PATH must be set}:/app/backend/extensions_config.json
+      - ${DEER_FLOW_HOME:?DEER_FLOW_HOME must be set}:/app/backend/.deer-flow
+      - ./skills:/app/skills:ro
+      - ${DEER_FLOW_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - type: bind
+        source: ${HOST_HOME:?HOST_HOME must be set}/.claude
+        target: /root/.claude
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${HOST_HOME:?HOST_HOME must be set}/.codex
+        target: /root/.codex
+        read_only: true
+        bind:
+          create_host_path: true
+    working_dir: /app
+    environment:
+      CI: "true"
+      DEER_FLOW_HOME: /app/backend/.deer-flow
+      DEER_FLOW_CONFIG_PATH: /app/backend/config.yaml
+      DEER_FLOW_EXTENSIONS_CONFIG_PATH: /app/backend/extensions_config.json
+      DEER_FLOW_CHANNELS_LANGGRAPH_URL: ${DEER_FLOW_CHANNELS_LANGGRAPH_URL:-http://langgraph:2024}
+      DEER_FLOW_CHANNELS_GATEWAY_URL: ${DEER_FLOW_CHANNELS_GATEWAY_URL:-http://gateway:8001}
+      DEER_FLOW_HOST_BASE_DIR: ${DEER_FLOW_HOME}
+      DEER_FLOW_HOST_SKILLS_PATH: ${APP_DIR:?APP_DIR must be set}/skills
+      DEER_FLOW_SANDBOX_HOST: host.docker.internal
+    env_file:
+      - ./.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+  langgraph:
+    image: ${BACKEND_IMAGE_REF:?BACKEND_IMAGE_REF must be set for production deploys}
+    container_name: deerflow-langgraph
+    command: sh -c 'cd /app/backend && args="--no-browser --no-reload --host 0.0.0.0 --port 2024 --n-jobs-per-worker $${LANGGRAPH_JOBS_PER_WORKER:-10}" && if [ "$${LANGGRAPH_ALLOW_BLOCKING:-0}" = "1" ]; then args="$$args --allow-blocking"; fi && uv run --no-sync langgraph dev $$args'
+    volumes:
+      - ${DEER_FLOW_CONFIG_PATH:?DEER_FLOW_CONFIG_PATH must be set}:/app/backend/config.yaml:ro
+      - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH:?DEER_FLOW_EXTENSIONS_CONFIG_PATH must be set}:/app/backend/extensions_config.json
+      - ${DEER_FLOW_HOME:?DEER_FLOW_HOME must be set}:/app/backend/.deer-flow
+      - ./skills:/app/skills:ro
+      - ./backend/.langgraph_api:/app/backend/.langgraph_api
+      - ${DEER_FLOW_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - type: bind
+        source: ${HOST_HOME:?HOST_HOME must be set}/.claude
+        target: /root/.claude
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${HOST_HOME:?HOST_HOME must be set}/.codex
+        target: /root/.codex
+        read_only: true
+        bind:
+          create_host_path: true
+    environment:
+      CI: "true"
+      DEER_FLOW_HOME: /app/backend/.deer-flow
+      DEER_FLOW_CONFIG_PATH: /app/backend/config.yaml
+      DEER_FLOW_EXTENSIONS_CONFIG_PATH: /app/backend/extensions_config.json
+      DEER_FLOW_HOST_BASE_DIR: ${DEER_FLOW_HOME}
+      DEER_FLOW_HOST_SKILLS_PATH: ${APP_DIR:?APP_DIR must be set}/skills
+      DEER_FLOW_SANDBOX_HOST: host.docker.internal
+    env_file:
+      - ./.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
+networks:
+  deer-flow:
+    driver: bridge

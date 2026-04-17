@@ -1,0 +1,87 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ vars.PRODUCTION_RUNNER_LABEL || 'linuxvm-primary' }}
+    environment: production
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Resolve deploy coordinates
+        id: vars
+        run: |
+          owner_lc="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          sha="$(git rev-parse HEAD)"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "backend_image_ref=ghcr.io/${owner_lc}/deer-flow-backend:sha-${sha}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image_ref=ghcr.io/${owner_lc}/deer-flow-frontend:sha-${sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate production variables
+        env:
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
+          PRODUCTION_APP_DOMAIN: ${{ vars.PRODUCTION_APP_DOMAIN }}
+          PRODUCTION_HEALTHCHECK_URL: ${{ vars.PRODUCTION_HEALTHCHECK_URL }}
+        run: |
+          : "${PRODUCTION_APP_DIR:?Set PRODUCTION_APP_DIR in the production environment variables.}"
+          : "${PRODUCTION_APP_DOMAIN:?Set PRODUCTION_APP_DOMAIN in the production environment variables.}"
+          : "${PRODUCTION_HEALTHCHECK_URL:?Set PRODUCTION_HEALTHCHECK_URL in the production environment variables.}"
+
+      - name: Sync deploy assets to production app dir
+        env:
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
+        run: |
+          mkdir -p "${PRODUCTION_APP_DIR}"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'backend/.venv' \
+            --exclude 'frontend/node_modules' \
+            --exclude '.env' \
+            --exclude '.deploy' \
+            ./ "${PRODUCTION_APP_DIR}/"
+
+      - name: Deploy on production host
+        env:
+          DEPLOY_SHA: ${{ steps.vars.outputs.sha }}
+          BACKEND_IMAGE_REF: ${{ steps.vars.outputs.backend_image_ref }}
+          FRONTEND_IMAGE_REF: ${{ steps.vars.outputs.frontend_image_ref }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCTION_APP_DIR: ${{ vars.PRODUCTION_APP_DIR }}
+        run: |
+          cd "${PRODUCTION_APP_DIR}"
+          printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+          chmod +x scripts/*.sh
+          APP_DIR="${PRODUCTION_APP_DIR}" \
+          DEPLOY_SHA="${DEPLOY_SHA}" \
+          BACKEND_IMAGE_REF="${BACKEND_IMAGE_REF}" \
+          FRONTEND_IMAGE_REF="${FRONTEND_IMAGE_REF}" \
+          GHCR_USERNAME="${GHCR_USERNAME}" \
+          GHCR_TOKEN="${GHCR_TOKEN}" \
+          scripts/deploy_production.sh
+
+      - name: Verify canonical public healthcheck
+        env:
+          PRODUCTION_HEALTHCHECK_URL: ${{ vars.PRODUCTION_HEALTHCHECK_URL }}
+        run: |
+          curl -fsS "${PRODUCTION_HEALTHCHECK_URL}"
