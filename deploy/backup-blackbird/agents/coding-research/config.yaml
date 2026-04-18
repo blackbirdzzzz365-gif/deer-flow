@@ -1,0 +1,13 @@
+name: coding-research
+description: Research-first coding agent for GitHub repositories, implementation planning, code changes, and technical writeups
+model: gpt-5.4
+tool_groups:
+  - web
+  - file:read
+  - file:write
+  - bash
+skills:
+  - deep-research
+  - github-deep-research
+  - code-documentation
+  - data-analysis

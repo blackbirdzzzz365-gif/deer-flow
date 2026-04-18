@@ -1,111 +1,151 @@
 # Production Deployment
 
-## Intake block
+## Current Production Truth
 
-- project_name: `deer-flow`
-- project_slug: `deerflow`
-- github_repo: `blackbirdzzzz365-gif/deer-flow`
-- app_dir_on_server: `/home/blackbird/services/deerflow`
-- app_port: `32026`
-- healthcheck_url: `http://127.0.0.1:32026/health`
-- runtime: `docker compose`
-- env_file_path: `/home/blackbird/services/deerflow/.env`
-- has_browser_ui: `true`
+- Project: `deer-flow`
+- GitHub repo: `blackbirdzzzz365-gif/deer-flow`
+- Production runtime host: `backup-blackbird`
+- Production SSH: `ssh -p 44518 ubuntu@e1.chiasegpu.vn`
+- Production app dir: `/home/ubuntu/services/deerflow`
+- Production env file: `/home/ubuntu/services/deerflow/.env`
+- Canonical domain: `deerflow.blackbirdzzzz.art`
+- Canonical public healthcheck: `https://deerflow.blackbirdzzzz.art/health`
+- Local host healthcheck: `http://127.0.0.1:32026/health`
+- GitHub runner label: `backup-blackbird-primary`
+- GitHub Actions vars:
+  - `PRODUCTION_APP_DIR=/home/ubuntu/services/deerflow`
+  - `PRODUCTION_APP_DOMAIN=deerflow.blackbirdzzzz.art`
+  - `PRODUCTION_HEALTHCHECK_URL=https://deerflow.blackbirdzzzz.art/health`
+  - `PRODUCTION_RUNNER_LABEL=backup-blackbird-primary`
 
-## Goal
+Production no longer runs on `linuxvm`. `linuxvm` was drained on `2026-04-18` to free disk.
 
-Production DeerFlow runs from code merged to GitHub `main`, with Linux VM as the primary runtime.
+## Deploy Mode
 
-- Primary runtime: `linuxvm`
-- Primary app dir: `/home/blackbird/services/deerflow`
-- Primary domain: `deerflow.blackbirdzzzz.art`
-- Canonical healthcheck: `https://deerflow.blackbirdzzzz.art/health`
+Production deploys are tied to GitHub `main` and GHCR SHA-tagged images.
 
-## Source of truth
+- Backend image repo: `ghcr.io/blackbirdzzzz365-gif/deer-flow-backend`
+- Frontend image repo: `ghcr.io/blackbirdzzzz365-gif/deer-flow-frontend`
+- Primary deploy workflow: `.github/workflows/deploy-production.yml`
+- Rollback workflow: `.github/workflows/rollback-production.yml`
+- Build workflow: `Build Production Images`
+- Quality gate: `CI`
 
-- Production branch: `main`
-- Backend image registry: `ghcr.io/blackbirdzzzz365-gif/deer-flow-backend`
-- Frontend image registry: `ghcr.io/blackbirdzzzz365-gif/deer-flow-frontend`
-- Production compose: `docker-compose.production.yml`
-- Primary env file: `/home/blackbird/services/deerflow/.env`
-- Env template: `deploy/production/app.env.example`
-- Runtime config template: `deploy/production/config.template.yaml`
-- Runtime extensions template: `deploy/production/extensions_config.template.json`
-- Seed agents: `deploy/production/agents/`
+Do not treat local source on the operator machine or on the host as the deploy source of truth. The deploy source of truth is:
 
-## Runtime posture
+1. code on `main`
+2. GHCR images tagged with that exact SHA
+3. `Deploy Production` GitHub workflow
 
-- The public UI and API share one hostname through the nginx container.
-- The backend and LangGraph containers mount `~/.codex` and `~/.claude` from `linuxvm`.
-- The default production model set uses:
-  - `gpt-5.4` via `CodexChatModel`
-  - `claude-sonnet-4.6` via `ClaudeChatModel`
-- Sandbox execution uses DeerFlow's Docker AIO sandbox through the host Docker socket.
-- The standard coding profile seeds a `coding-research` custom agent plus official GitHub and Playwright MCP servers.
+## Server Env And Templates
 
-## Required server env
+The production host `.env` must follow the backup-blackbird variant, not the old linuxvm layout.
 
-Primary `.env`:
+Core values:
 
 ```env
-APP_DIR=/home/blackbird/services/deerflow
+APP_DIR=/home/ubuntu/services/deerflow
 APP_PORT=32026
 APP_DOMAIN=deerflow.blackbirdzzzz.art
 PRODUCTION_HEALTHCHECK_URL=https://deerflow.blackbirdzzzz.art/health
 LOCAL_HEALTHCHECK_URL=http://127.0.0.1:32026/health
-HOST_HOME=/home/blackbird
-DEER_FLOW_HOME=/home/blackbird/services/deerflow/runtime
-DEER_FLOW_CONFIG_PATH=/home/blackbird/services/deerflow/config/config.yaml
-DEER_FLOW_EXTENSIONS_CONFIG_PATH=/home/blackbird/services/deerflow/config/extensions_config.json
+HOST_HOME=/home/ubuntu
+DEER_FLOW_HOME=/home/ubuntu/services/deerflow/runtime
+DEER_FLOW_CONFIG_PATH=/home/ubuntu/services/deerflow/config/config.yaml
+DEER_FLOW_EXTENSIONS_CONFIG_PATH=/home/ubuntu/services/deerflow/config/extensions_config.json
 DEER_FLOW_DOCKER_SOCKET=/var/run/docker.sock
 IMAGE_REPO_BACKEND=ghcr.io/blackbirdzzzz365-gif/deer-flow-backend
 IMAGE_REPO_FRONTEND=ghcr.io/blackbirdzzzz365-gif/deer-flow-frontend
-GATEWAY_WORKERS=4
-LANGGRAPH_JOBS_PER_WORKER=10
+GATEWAY_WORKERS=2
+LANGGRAPH_JOBS_PER_WORKER=4
 LANGGRAPH_ALLOW_BLOCKING=1
+DEPLOY_TEMPLATE_DIR=deploy/backup-blackbird
+COMPOSE_FILES=docker-compose.production.yml,deploy/backup-blackbird/docker-compose.override.yml
+REQUIRE_PUBLIC_HEALTHCHECK=1
+OPENCLAW_SHARED_ENV_FILE=/home/ubuntu/.openclaw/.env
+NINEROUTER_API_KEY=...
 ```
 
-`BETTER_AUTH_SECRET` is generated automatically by `scripts/deploy_production.sh` and persisted under `.deploy/`.
-GitHub MCP credentials should be written to `/home/blackbird/services/deerflow/.deploy/github_mcp_token` so the token does not appear in DeerFlow's public MCP config API.
+Tracked templates and assets that production depends on:
 
-## Deploy flow
+- `deploy/backup-blackbird/app.env.example`
+- `deploy/backup-blackbird/config.template.yaml`
+- `deploy/backup-blackbird/extensions_config.template.json`
+- `deploy/backup-blackbird/docker-compose.override.yml`
+- `deploy/backup-blackbird/mcp/`
+- `deploy/backup-blackbird/agents/`
+- `scripts/deploy_production.sh`
+- `scripts/rollback_production.sh`
+- `scripts/healthcheck_production.sh`
 
-1. Merge or push the target commit to `main`.
-2. `build-image.yml` publishes multi-arch images for:
-   - `linux/arm64` on primary `linuxvm`
-   - `linux/amd64` for future standby compatibility
-3. `deploy-production.yml` syncs the repo to `/home/blackbird/services/deerflow`.
-4. The workflow writes `.deploy/deploy.env`, pulls GHCR images, and runs:
-   - `docker compose -f docker-compose.production.yml pull`
-   - `docker compose -f docker-compose.production.yml up -d --remove-orphans`
-5. `scripts/healthcheck_production.sh` validates:
-   - local: `http://127.0.0.1:32026/health`
-   - public: `https://deerflow.blackbirdzzzz.art/health`
-6. Deployment state is persisted in `.deploy/production-state.env`.
+## Correct Deploy Flow After Coding
+
+1. Push or merge the target commit to `main`.
+2. Wait for `CI` to pass for that exact SHA.
+3. Wait for `Build Production Images` to pass for that exact SHA.
+4. Trigger `Deploy Production`.
+5. Verify:
+   - `https://deerflow.blackbirdzzzz.art/health`
+   - `http://127.0.0.1:32026/health` on `backup-blackbird`
+   - `/home/ubuntu/services/deerflow/.deploy/production-state.env`
+6. If deploy must be undone, use `Roll Back Production`.
+
+Typical operator commands:
+
+```bash
+gh run list --repo blackbirdzzzz365-gif/deer-flow --limit 10
+gh workflow run "Deploy Production" --repo blackbirdzzzz365-gif/deer-flow --ref main
+gh run watch <deploy-run-id> --repo blackbirdzzzz365-gif/deer-flow --exit-status
+curl -fsS https://deerflow.blackbirdzzzz.art/health
+ssh -p 44518 ubuntu@e1.chiasegpu.vn 'curl -fsS http://127.0.0.1:32026/health'
+ssh -p 44518 ubuntu@e1.chiasegpu.vn 'sed -n "1,20p" /home/ubuntu/services/deerflow/.deploy/production-state.env'
+```
+
+## What The Deploy Script Now Does
+
+`scripts/deploy_production.sh` is no longer tied to a single compose file or a single template directory.
+
+It now:
+
+1. reads `DEPLOY_TEMPLATE_DIR` from host `.env`
+2. reads `COMPOSE_FILES` from host `.env`
+3. hydrates file-backed secrets under `.deploy/`
+4. copies MCP wrappers from `DEPLOY_TEMPLATE_DIR/mcp/` into `.deploy/`
+5. writes `.deploy/deploy.env`
+6. runs:
+   - `docker compose ... pull`
+   - `docker compose ... up -d --remove-orphans`
+   - `docker compose ... restart nginx`
+7. runs `scripts/healthcheck_production.sh`
+8. records the result in `.deploy/production-state.env`
+
+The `nginx` restart is intentional and required. Without it, `nginx:alpine` can keep a stale upstream IP for `gateway` after backend containers are recreated, which causes `/health` to fail with `502` even though the new gateway container is healthy.
+
+## Critical Rules
+
+- Do not deploy DeerFlow production to `linuxvm`.
+- Do not revert `PRODUCTION_RUNNER_LABEL` to `linuxvm-primary`.
+- Do not revert `PRODUCTION_APP_DIR` to `/home/blackbird/services/deerflow`.
+- Do not trigger `Deploy Production` before `Build Production Images` succeeds for the same SHA.
+- Do not keep backup-blackbird-only files only on the host. GitHub deploy uses `rsync --delete`, so anything not tracked in the repo can be deleted on the next deploy.
+- Do not remove the `nginx` restart from `scripts/deploy_production.sh` unless the upstream routing model changes and is revalidated.
+- Keep `deerflow.blackbirdzzzz.art` as the canonical public URL.
+- Keep production mounted to `/home/ubuntu/.codex`, `/home/ubuntu/.claude`, and `/home/ubuntu/.openclaw/.env`.
 
 ## Rollback
 
-- Default rollback target: `PREVIOUS_SHA`
-- Explicit rollback target: `ROLLBACK_SHA=<sha>`
-
-Use:
+Use GitHub Actions first:
 
 ```bash
-scripts/rollback_production.sh
-scripts/rollback_production.sh <sha>
+gh workflow run "Roll Back Production" --repo blackbirdzzzz365-gif/deer-flow
+gh workflow run "Roll Back Production" --repo blackbirdzzzz365-gif/deer-flow -f rollback_sha=<sha>
 ```
 
-Or via GitHub Actions:
+Or directly on the host if necessary:
 
 ```bash
-scripts/trigger_production_rollback.sh
-scripts/trigger_production_rollback.sh <sha>
+ssh -p 44518 ubuntu@e1.chiasegpu.vn '
+  cd /home/ubuntu/services/deerflow &&
+  scripts/rollback_production.sh
+'
 ```
-
-## Rules
-
-- Do not build production from local source on `linuxvm`.
-- Keep production tied to `main` and GHCR SHA-tagged images.
-- Keep `deerflow.blackbirdzzzz.art` as the canonical public URL.
-- Preserve the host-mounted Codex and Claude auth directories on `linuxvm`.
-- Finish production verification with `ssh linuxvm '~/bin/prod-audit'`.
