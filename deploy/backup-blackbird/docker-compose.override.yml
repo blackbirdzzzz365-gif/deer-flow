@@ -1,0 +1,23 @@
+x-backup-blackbird-service: &backup_blackbird_service
+  pull_policy: always
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "3"
+
+services:
+  nginx:
+    <<: *backup_blackbird_service
+
+  frontend:
+    <<: *backup_blackbird_service
+    platform: linux/amd64
+
+  gateway:
+    <<: *backup_blackbird_service
+    platform: linux/amd64
+
+  langgraph:
+    <<: *backup_blackbird_service
+    platform: linux/amd64

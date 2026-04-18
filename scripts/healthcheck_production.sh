@@ -20,6 +20,7 @@ set +a
 
 local_healthcheck_url="${LOCAL_HEALTHCHECK_URL:-http://127.0.0.1:${APP_PORT:-32026}/health}"
 public_healthcheck_url="${PRODUCTION_HEALTHCHECK_URL:-https://${APP_DOMAIN:?APP_DOMAIN must be set}/health}"
+require_public_healthcheck="${REQUIRE_PUBLIC_HEALTHCHECK:-1}"
 
 for _ in $(seq 1 20); do
   if curl -fsS "${local_healthcheck_url}" >/dev/null; then
@@ -29,10 +30,12 @@ for _ in $(seq 1 20); do
 done
 curl -fsS "${local_healthcheck_url}" >/dev/null
 
-for _ in $(seq 1 20); do
-  if curl -fsS "${public_healthcheck_url}" >/dev/null; then
-    break
-  fi
-  sleep 3
-done
-curl -fsS "${public_healthcheck_url}" >/dev/null
+if [[ "${require_public_healthcheck}" != "0" ]]; then
+  for _ in $(seq 1 20); do
+    if curl -fsS "${public_healthcheck_url}" >/dev/null; then
+      break
+    fi
+    sleep 3
+  done
+  curl -fsS "${public_healthcheck_url}" >/dev/null
+fi

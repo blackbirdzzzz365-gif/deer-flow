@@ -1,0 +1,162 @@
+config_version: 7
+
+log_level: info
+
+token_usage:
+  enabled: true
+
+models:
+  - name: gpt-5.4
+    display_name: GPT-5.4 (9router)
+    use: langchain_openai:ChatOpenAI
+    model: cx/gpt-5.4
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_reasoning_effort: true
+
+  - name: deer-flow
+    display_name: Deer Flow (9router)
+    use: langchain_openai:ChatOpenAI
+    model: deer-flow
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_reasoning_effort: true
+
+  - name: claude-sonnet-4.6
+    display_name: Claude Sonnet 4.6 (legacy alias via 9router)
+    use: langchain_openai:ChatOpenAI
+    model: deer-flow
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_reasoning_effort: true
+
+tool_groups:
+  - name: web
+  - name: file:read
+  - name: file:write
+  - name: bash
+
+tools:
+  - name: web_search
+    group: web
+    use: deerflow.community.ddg_search.tools:web_search_tool
+    max_results: 5
+
+  - name: web_fetch
+    group: web
+    use: deerflow.community.jina_ai.tools:web_fetch_tool
+    timeout: 10
+
+  - name: image_search
+    group: web
+    use: deerflow.community.image_search.tools:image_search_tool
+    max_results: 5
+
+  - name: ls
+    group: file:read
+    use: deerflow.sandbox.tools:ls_tool
+
+  - name: read_file
+    group: file:read
+    use: deerflow.sandbox.tools:read_file_tool
+
+  - name: glob
+    group: file:read
+    use: deerflow.sandbox.tools:glob_tool
+    max_results: 200
+
+  - name: grep
+    group: file:read
+    use: deerflow.sandbox.tools:grep_tool
+    max_results: 100
+
+  - name: write_file
+    group: file:write
+    use: deerflow.sandbox.tools:write_file_tool
+
+  - name: str_replace
+    group: file:write
+    use: deerflow.sandbox.tools:str_replace_tool
+
+  - name: bash
+    group: bash
+    use: deerflow.sandbox.tools:bash_tool
+
+tool_search:
+  enabled: true
+
+uploads:
+  pdf_converter: auto
+
+sandbox:
+  use: deerflow.community.aio_sandbox:AioSandboxProvider
+  image: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+  container_prefix: deer-flow-sandbox
+  replicas: 1
+  bash_output_max_chars: 20000
+  read_file_output_max_chars: 50000
+  ls_output_max_chars: 20000
+
+skills:
+  container_path: /mnt/skills
+
+title:
+  enabled: true
+  max_words: 6
+  max_chars: 60
+  model_name: deer-flow
+
+summarization:
+  enabled: true
+  model_name: deer-flow
+  trigger:
+    - type: tokens
+      value: 15564
+  keep:
+    type: messages
+    value: 10
+  trim_tokens_to_summarize: 15564
+  summary_prompt: null
+
+memory:
+  enabled: true
+  storage_path: /app/backend/.deer-flow/memory.json
+  debounce_seconds: 30
+  model_name: deer-flow
+  max_facts: 100
+  fact_confidence_threshold: 0.7
+  injection_enabled: true
+  max_injection_tokens: 2000
+
+agents_api:
+  enabled: true
+
+subagents:
+  timeout_seconds: 1200
+  agents:
+    general-purpose:
+      timeout_seconds: 1800
+      max_turns: 140
+    bash:
+      timeout_seconds: 600
+      max_turns: 80
+
+skill_evolution:
+  enabled: false
+  moderation_model_name: null
+
+checkpointer:
+  type: sqlite
+  connection_string: /app/backend/.deer-flow/checkpoints.db

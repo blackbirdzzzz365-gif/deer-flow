@@ -2,12 +2,30 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/blackbird/services/deerflow}"
+COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.production.yml}"
 ROLLBACK_SHA="${ROLLBACK_SHA:-${1:-}}"
 
 cd "${APP_DIR}"
 
 if [[ ! -f .env ]]; then
   echo "Missing ${APP_DIR}/.env" >&2
+  exit 1
+fi
+
+compose_args=()
+IFS=',' read -r -a compose_files <<< "${COMPOSE_FILES}"
+for compose_file in "${compose_files[@]}"; do
+  compose_file="${compose_file//[[:space:]]/}"
+  [[ -n "${compose_file}" ]] || continue
+  if [[ ! -f "${compose_file}" ]]; then
+    echo "Missing compose file: ${APP_DIR}/${compose_file}" >&2
+    exit 1
+  fi
+  compose_args+=(-f "${compose_file}")
+done
+
+if [[ ${#compose_args[@]} -eq 0 ]]; then
+  echo "No compose files resolved from COMPOSE_FILES=${COMPOSE_FILES}" >&2
   exit 1
 fi
 
@@ -74,8 +92,8 @@ FRONTEND_IMAGE_REF=${frontend_image_ref}
 DEPLOY_SHA=${target_sha}
 EOF
 
-docker compose --env-file .env --env-file "${deploy_env_file}" -f docker-compose.production.yml pull
-docker compose --env-file .env --env-file "${deploy_env_file}" -f docker-compose.production.yml up -d --remove-orphans
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" pull
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" up -d --remove-orphans
 
 APP_DIR="${APP_DIR}" scripts/healthcheck_production.sh
 
@@ -90,4 +108,4 @@ PREVIOUS_FRONTEND_IMAGE_REF=${CURRENT_FRONTEND_IMAGE_REF:-}
 ROLLED_BACK_AT=${rolled_back_at}
 EOF
 
-docker compose --env-file .env --env-file "${deploy_env_file}" -f docker-compose.production.yml ps
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" ps
