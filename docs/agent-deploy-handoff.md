@@ -34,6 +34,7 @@ Production is not on `linuxvm` anymore.
 - `scripts/deploy_production.sh` must restart `nginx` after `docker compose up -d --remove-orphans`.
 - That restart is required because `nginx` can keep a stale Docker upstream IP and otherwise `/health` may return `502` after a rollout.
 - GitHub deploy uses `rsync --delete`, so deploy-only files must be committed in the repo, not left only on the host.
+- GitHub deploy must exclude `runtime/` from `rsync --delete`; that path is live host state for DeerFlow threads, uploads, and workspaces.
 
 ## Do Not Do These Things
 
