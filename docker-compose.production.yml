@@ -40,6 +40,7 @@ services:
       - ${DEER_FLOW_CONFIG_PATH:?DEER_FLOW_CONFIG_PATH must be set}:/app/backend/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH:?DEER_FLOW_EXTENSIONS_CONFIG_PATH must be set}:/app/backend/extensions_config.json
       - ${DEER_FLOW_HOME:?DEER_FLOW_HOME must be set}:/app/backend/.deer-flow
+      - ${APP_DIR:?APP_DIR must be set}/.deploy:/app/.deploy:ro
       - ./skills:/app/skills:ro
       - ${DEER_FLOW_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
       - type: bind
@@ -81,6 +82,7 @@ services:
       - ${DEER_FLOW_CONFIG_PATH:?DEER_FLOW_CONFIG_PATH must be set}:/app/backend/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH:?DEER_FLOW_EXTENSIONS_CONFIG_PATH must be set}:/app/backend/extensions_config.json
       - ${DEER_FLOW_HOME:?DEER_FLOW_HOME must be set}:/app/backend/.deer-flow
+      - ${APP_DIR:?APP_DIR must be set}/.deploy:/app/.deploy:ro
       - ./skills:/app/skills:ro
       - ./backend/.langgraph_api:/app/backend/.langgraph_api
       - ${DEER_FLOW_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock

@@ -1,4 +1,43 @@
 {
-  "mcpServers": {},
-  "skills": {}
+  "mcpServers": {
+    "github": {
+      "enabled": true,
+      "type": "stdio",
+      "command": "sh",
+      "args": [
+        "/app/scripts/run_github_mcp.sh"
+      ],
+      "env": {},
+      "description": "Official GitHub MCP server for repository, issues, pull requests, and workflow analysis"
+    },
+    "playwright": {
+      "enabled": true,
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--init",
+        "--pull=always",
+        "mcr.microsoft.com/playwright/mcp"
+      ],
+      "env": {},
+      "description": "Official Playwright MCP server for browser automation and live web validation"
+    }
+  },
+  "skills": {
+    "public:deep-research": {
+      "enabled": true
+    },
+    "public:github-deep-research": {
+      "enabled": true
+    },
+    "public:code-documentation": {
+      "enabled": true
+    },
+    "public:data-analysis": {
+      "enabled": true
+    }
+  }
 }

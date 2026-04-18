@@ -10,7 +10,7 @@
 - healthcheck_url: `http://127.0.0.1:32026/health`
 - runtime: `docker compose`
 - env_file_path: `/home/blackbird/services/deerflow/.env`
-- has_browser_ui: `false`
+- has_browser_ui: `true`
 
 ## Goal
 
@@ -31,6 +31,7 @@ Production DeerFlow runs from code merged to GitHub `main`, with Linux VM as the
 - Env template: `deploy/production/app.env.example`
 - Runtime config template: `deploy/production/config.template.yaml`
 - Runtime extensions template: `deploy/production/extensions_config.template.json`
+- Seed agents: `deploy/production/agents/`
 
 ## Runtime posture
 
@@ -40,6 +41,7 @@ Production DeerFlow runs from code merged to GitHub `main`, with Linux VM as the
   - `gpt-5.4` via `CodexChatModel`
   - `claude-sonnet-4.6` via `ClaudeChatModel`
 - Sandbox execution uses DeerFlow's Docker AIO sandbox through the host Docker socket.
+- The standard coding profile seeds a `coding-research` custom agent plus official GitHub and Playwright MCP servers.
 
 ## Required server env
 
@@ -64,6 +66,7 @@ LANGGRAPH_ALLOW_BLOCKING=1
 ```
 
 `BETTER_AUTH_SECRET` is generated automatically by `scripts/deploy_production.sh` and persisted under `.deploy/`.
+GitHub MCP credentials should be written to `/home/blackbird/services/deerflow/.deploy/github_mcp_token` so the token does not appear in DeerFlow's public MCP config API.
 
 ## Deploy flow
 

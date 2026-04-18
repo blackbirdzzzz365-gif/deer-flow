@@ -73,7 +73,7 @@ tools:
     use: deerflow.sandbox.tools:bash_tool
 
 tool_search:
-  enabled: false
+  enabled: true
 
 uploads:
   pdf_converter: auto
@@ -119,7 +119,17 @@ memory:
   max_injection_tokens: 2000
 
 agents_api:
-  enabled: false
+  enabled: true
+
+subagents:
+  timeout_seconds: 1200
+  agents:
+    general-purpose:
+      timeout_seconds: 1800
+      max_turns: 140
+    bash:
+      timeout_seconds: 600
+      max_turns: 80
 
 skill_evolution:
   enabled: false

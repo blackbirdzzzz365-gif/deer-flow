@@ -23,6 +23,7 @@ config_dir="${APP_DIR}/config"
 state_file="${deploy_dir}/production-state.env"
 deploy_env_file="${deploy_dir}/deploy.env"
 secret_file="${deploy_dir}/better-auth-secret"
+seed_agents_dir="${APP_DIR}/deploy/production/agents"
 
 mkdir -p "${deploy_dir}" "${config_dir}" "${DEER_FLOW_HOME}" "${APP_DIR}/backend/.langgraph_api"
 
@@ -32,6 +33,18 @@ fi
 
 if [[ ! -f "${DEER_FLOW_EXTENSIONS_CONFIG_PATH}" ]]; then
   cp "${APP_DIR}/deploy/production/extensions_config.template.json" "${DEER_FLOW_EXTENSIONS_CONFIG_PATH}"
+fi
+
+if [[ -d "${seed_agents_dir}" ]]; then
+  mkdir -p "${DEER_FLOW_HOME}/agents"
+  for seed_agent_dir in "${seed_agents_dir}"/*; do
+    [[ -d "${seed_agent_dir}" ]] || continue
+    target_agent_dir="${DEER_FLOW_HOME}/agents/$(basename "${seed_agent_dir}")"
+    if [[ ! -d "${target_agent_dir}" ]]; then
+      mkdir -p "${target_agent_dir}"
+      cp -R "${seed_agent_dir}/." "${target_agent_dir}/"
+    fi
+  done
 fi
 
 better_auth_secret="${BETTER_AUTH_SECRET:-}"
