@@ -90,6 +90,12 @@ Tracked templates and assets that production depends on:
    - `/home/ubuntu/services/deerflow/.deploy/production-state.env`
 6. If deploy must be undone, use `Roll Back Production`.
 
+After those three checks pass, run the standard smoke pack:
+
+```bash
+scripts/smoke_production.sh
+```
+
 Typical operator commands:
 
 ```bash
@@ -149,3 +155,9 @@ ssh -p 44518 ubuntu@e1.chiasegpu.vn '
   scripts/rollback_production.sh
 '
 ```
+
+## Smoke Pack Reference
+
+For the standard post-deploy runtime/API/browser pack, read:
+
+- `docs/production-smoke-pack.md`
