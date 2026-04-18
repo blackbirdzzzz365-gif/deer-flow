@@ -38,12 +38,12 @@ latest_run_for_sha() {
     --limit 50 \
     --json databaseId,headSha,status,conclusion,createdAt,url)"
 
-  python3 - "${target_sha}" <<'PY' <<<"${output}"
+  python3 -c '
 import json
 import sys
 
 target_sha = sys.argv[1]
-runs = json.load(sys.stdin)
+runs = json.loads(sys.stdin.read())
 
 matches = [run for run in runs if run.get("headSha") == target_sha]
 if not matches:
@@ -51,8 +51,8 @@ if not matches:
 
 matches.sort(key=lambda run: run.get("createdAt", ""), reverse=True)
 run = matches[0]
-print(f"{run['databaseId']}\t{run['status']}\t{run.get('conclusion') or ''}\t{run.get('url') or ''}")
-PY
+print(f"{run['\''databaseId'\'']}\t{run['\''status'\'']}\t{run.get('\''conclusion'\'') or '\'''\''}\t{run.get('\''url'\'') or '\'''\''}")
+' "${target_sha}" <<<"${output}"
 }
 
 wait_for_success() {
