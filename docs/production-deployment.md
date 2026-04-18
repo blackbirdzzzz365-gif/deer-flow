@@ -101,6 +101,16 @@ ssh -p 44518 ubuntu@e1.chiasegpu.vn 'curl -fsS http://127.0.0.1:32026/health'
 ssh -p 44518 ubuntu@e1.chiasegpu.vn 'sed -n "1,20p" /home/ubuntu/services/deerflow/.deploy/production-state.env'
 ```
 
+If you want one guarded command that waits for `CI` and `Build Production Images`
+for the same `main` SHA before dispatching `Deploy Production`, use:
+
+```bash
+scripts/trigger_production_deploy.sh
+```
+
+That helper also watches the deploy run and performs the canonical public/local/state-file
+verification unless `SKIP_VERIFY=1` is set.
+
 ## What The Deploy Script Now Does
 
 `scripts/deploy_production.sh` is no longer tied to a single compose file or a single template directory.
