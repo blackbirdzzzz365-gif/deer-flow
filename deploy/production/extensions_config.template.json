@@ -5,7 +5,8 @@
       "type": "stdio",
       "command": "sh",
       "args": [
-        "/app/scripts/run_github_mcp.sh"
+        "-lc",
+        "set -eu; GITHUB_PERSONAL_ACCESS_TOKEN=$(cat /app/.deploy/github_mcp_token); export GITHUB_PERSONAL_ACCESS_TOKEN; exec docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server"
       ],
       "env": {},
       "description": "Official GitHub MCP server for repository, issues, pull requests, and workflow analysis"
@@ -24,6 +25,22 @@
       ],
       "env": {},
       "description": "Official Playwright MCP server for browser automation and live web validation"
+    },
+    "x-search": {
+      "enabled": true,
+      "type": "stdio",
+      "command": "sh",
+      "args": [
+        "/app/.deploy/run_x_search_mcp.sh"
+      ],
+      "env": {
+        "XAI_BASE_URL": "",
+        "XAI_X_SEARCH_MODEL": "",
+        "XAI_X_SEARCH_MAX_TURNS": "",
+        "XAI_X_SEARCH_TIMEOUT_SECONDS": "",
+        "XAI_X_SEARCH_INLINE_CITATIONS": ""
+      },
+      "description": "xAI-backed X/Twitter search MCP server compatible with the OpenClaw x_search workflow"
     }
   },
   "skills": {

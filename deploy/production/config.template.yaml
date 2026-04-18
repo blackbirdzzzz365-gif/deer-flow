@@ -7,18 +7,40 @@ token_usage:
 
 models:
   - name: gpt-5.4
-    display_name: GPT-5.4 (Codex CLI)
-    use: deerflow.models.openai_codex_provider:CodexChatModel
-    model: gpt-5.4
+    display_name: GPT-5.4 (9router)
+    use: langchain_openai:ChatOpenAI
+    model: cx/gpt-5.4
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_reasoning_effort: true
+
+  - name: deer-flow
+    display_name: Deer Flow (9router)
+    use: langchain_openai:ChatOpenAI
+    model: deer-flow
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
     supports_thinking: true
     supports_reasoning_effort: true
 
   - name: claude-sonnet-4.6
-    display_name: Claude Sonnet 4.6 (Claude Code OAuth)
-    use: deerflow.models.claude_provider:ClaudeChatModel
-    model: claude-sonnet-4-6
-    max_tokens: 8192
+    display_name: Claude Sonnet 4.6 (legacy alias via 9router)
+    use: langchain_openai:ChatOpenAI
+    model: deer-flow
+    api_key: $NINEROUTER_API_KEY
+    base_url: https://9router.blackbirdzzzz.art/v1
+    reasoning_effort: high
+    request_timeout: 600.0
+    max_retries: 2
     supports_thinking: true
+    supports_reasoning_effort: true
 
 tool_groups:
   - name: web
@@ -94,11 +116,11 @@ title:
   enabled: true
   max_words: 6
   max_chars: 60
-  model_name: gpt-5.4
+  model_name: deer-flow
 
 summarization:
   enabled: true
-  model_name: gpt-5.4
+  model_name: deer-flow
   trigger:
     - type: tokens
       value: 15564
@@ -112,7 +134,7 @@ memory:
   enabled: true
   storage_path: /app/backend/.deer-flow/memory.json
   debounce_seconds: 30
-  model_name: gpt-5.4
+  model_name: deer-flow
   max_facts: 100
   fact_confidence_threshold: 0.7
   injection_enabled: true
