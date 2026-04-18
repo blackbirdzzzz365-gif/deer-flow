@@ -24,6 +24,7 @@ services:
     image: ${FRONTEND_IMAGE_REF:?FRONTEND_IMAGE_REF must be set for production deploys}
     container_name: deerflow-frontend
     environment:
+      BETTER_AUTH_BASE_URL: ${BETTER_AUTH_BASE_URL:?BETTER_AUTH_BASE_URL must be set}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       DEER_FLOW_INTERNAL_GATEWAY_BASE_URL: http://gateway:8001
       DEER_FLOW_INTERNAL_LANGGRAPH_BASE_URL: http://langgraph:2024

@@ -10,6 +10,14 @@ import { WordRotate } from "@/components/ui/word-rotate";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
+const heroCapabilities = [
+  "Deep Research",
+  "Code and Debug",
+  "Analyze Systems",
+  "Build Automations",
+  "Ship Deliverables",
+];
+
 export function Hero({ className }: { className?: string }) {
   return (
     <div
@@ -36,26 +44,13 @@ export function Hero({ className }: { className?: string }) {
         maxOpacity={0.3}
         flickerChance={0.25}
       />
-      <div className="container-md relative z-10 mx-auto flex h-screen flex-col items-center justify-center">
-        <h1 className="flex items-center gap-2 text-4xl font-bold md:text-6xl">
+      <div className="container-md relative z-10 mx-auto flex min-h-screen flex-col items-center justify-center px-6 pt-24 pb-12">
+        <h1 className="flex flex-col items-center gap-1 text-center text-4xl font-bold tracking-tight md:flex-row md:gap-2 md:text-6xl">
           <WordRotate
-            words={[
-              "Deep Research",
-              "Collect Data",
-              "Analyze Data",
-              "Generate Webpages",
-              "Vibe Coding",
-              "Generate Slides",
-              "Generate Images",
-              "Generate Podcasts",
-              "Generate Videos",
-              "Generate Songs",
-              "Organize Emails",
-              "Do Anything",
-              "Learn Anything",
-            ]}
+            words={heroCapabilities}
+            className="leading-none"
           />{" "}
-          <div>with DeerFlow</div>
+          <div className="leading-none">with DeerFlow</div>
         </h1>
         {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY && (
           <a
@@ -69,18 +64,14 @@ export function Hero({ className }: { className?: string }) {
             </div>
           </a>
         )}
-        <p className="text-muted-foreground mt-8 scale-105 text-center text-2xl text-shadow-sm">
-          An open-source SuperAgent harness that researches, codes, and creates.
-          With
-          <br />
-          the help of sandboxes, memories, tools, skills and subagents, it
-          handles
-          <br />
-          different levels of tasks that could take minutes to hours.
+        <p className="text-muted-foreground mt-8 max-w-3xl text-center text-lg text-balance text-shadow-sm sm:text-xl md:text-2xl">
+          The open-source SuperAgent workspace for research, coding, and
+          structured execution. DeerFlow coordinates tools, skills, memories,
+          and subagents across work that takes minutes to hours.
         </p>
         <Link href="/workspace">
           <Button className="size-lg mt-8 scale-108" size="lg">
-            <span className="text-md">Get Started with 2.0</span>
+            <span className="text-md">Open Workspace</span>
             <ChevronRightIcon className="size-4" />
           </Button>
         </Link>

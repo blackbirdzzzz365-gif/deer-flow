@@ -180,6 +180,7 @@ write_secret_file "${firecrawl_url_file}" "${firecrawl_api_url}"
 write_secret_file "${cloudflare_secret_file}" "${cloudflare_api_token}"
 
 better_auth_secret="${BETTER_AUTH_SECRET:-}"
+better_auth_base_url="${BETTER_AUTH_BASE_URL:-}"
 if [[ -z "${better_auth_secret}" ]]; then
   if [[ -f "${secret_file}" ]]; then
     better_auth_secret="$(cat "${secret_file}")"
@@ -188,6 +189,10 @@ if [[ -z "${better_auth_secret}" ]]; then
     printf '%s' "${better_auth_secret}" > "${secret_file}"
     chmod 600 "${secret_file}"
   fi
+fi
+
+if [[ -z "${better_auth_base_url}" ]]; then
+  better_auth_base_url="https://${APP_DOMAIN:?APP_DOMAIN must be set}"
 fi
 
 if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
@@ -207,6 +212,7 @@ fi
 
 cat > "${deploy_env_file}" <<EOF
 APP_DIR=${APP_DIR}
+BETTER_AUTH_BASE_URL=${better_auth_base_url}
 BETTER_AUTH_SECRET=${better_auth_secret}
 BACKEND_IMAGE_REF=${BACKEND_IMAGE_REF}
 FRONTEND_IMAGE_REF=${FRONTEND_IMAGE_REF}

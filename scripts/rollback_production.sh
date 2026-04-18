@@ -71,6 +71,7 @@ if [[ -z "${frontend_image_ref}" ]]; then
 fi
 
 better_auth_secret="${BETTER_AUTH_SECRET:-}"
+better_auth_base_url="${BETTER_AUTH_BASE_URL:-}"
 if [[ -z "${better_auth_secret}" && -f "${secret_file}" ]]; then
   better_auth_secret="$(cat "${secret_file}")"
 fi
@@ -80,12 +81,17 @@ if [[ -z "${better_auth_secret}" ]]; then
   exit 1
 fi
 
+if [[ -z "${better_auth_base_url}" ]]; then
+  better_auth_base_url="https://${APP_DOMAIN:?APP_DOMAIN must be set}"
+fi
+
 if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
   printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 fi
 
 cat > "${deploy_env_file}" <<EOF
 APP_DIR=${APP_DIR}
+BETTER_AUTH_BASE_URL=${better_auth_base_url}
 BETTER_AUTH_SECRET=${better_auth_secret}
 BACKEND_IMAGE_REF=${backend_image_ref}
 FRONTEND_IMAGE_REF=${frontend_image_ref}
