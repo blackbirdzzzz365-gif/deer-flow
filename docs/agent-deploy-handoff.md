@@ -26,6 +26,12 @@ Production is not on `linuxvm` anymore.
    - `ssh -p 44518 ubuntu@e1.chiasegpu.vn 'curl -fsS http://127.0.0.1:32026/health'`
    - `ssh -p 44518 ubuntu@e1.chiasegpu.vn 'sed -n "1,20p" /home/ubuntu/services/deerflow/.deploy/production-state.env'`
 
+If you want the repo helper to enforce those gates in one command, run:
+
+```bash
+scripts/trigger_production_deploy.sh
+```
+
 ## Important Project-Specific Facts
 
 - The host `.env` must keep:
