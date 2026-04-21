@@ -433,6 +433,49 @@ class TestSyncExecutionPath:
         assert result.status == SubagentStatus.COMPLETED
         assert result.result == "Thread pool result"
 
+    def test_isolated_loop_closes_loop_bound_async_clients(self, classes, base_config):
+        """Test that isolated-loop execution closes loop-bound OpenAI clients before loop.close()."""
+        import deerflow.subagents.executor as executor_module
+
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentResult = classes["SubagentResult"]
+        SubagentStatus = classes["SubagentStatus"]
+
+        executor = SubagentExecutor(
+            config=base_config,
+            tools=[],
+            thread_id="test-thread",
+        )
+
+        expected = SubagentResult(
+            task_id="task-1",
+            trace_id="trace-1",
+            status=SubagentStatus.COMPLETED,
+            result="done",
+            started_at=datetime.now(),
+            completed_at=datetime.now(),
+        )
+        cleanup_called = False
+
+        async def _fake_aexecute(task, result_holder=None):
+            return expected
+
+        async def _fake_close_loop_bound_async_clients():
+            nonlocal cleanup_called
+            cleanup_called = True
+
+        with patch.object(executor, "_aexecute", new=_fake_aexecute):
+            with patch.object(
+                executor_module,
+                "close_loop_bound_async_clients",
+                side_effect=_fake_close_loop_bound_async_clients,
+            ) as close_mock:
+                result = executor._execute_in_isolated_loop("Task")
+
+        assert result is expected
+        assert cleanup_called is True
+        assert close_mock.call_count == 1
+
     @pytest.mark.anyio
     async def test_execute_in_running_event_loop_uses_isolated_thread(self, classes, base_config, mock_agent, msg):
         """Test that execute() uses the isolated-thread path inside a running loop."""

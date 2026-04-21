@@ -1,6 +1,7 @@
 """Subagent execution engine."""
 
 import asyncio
+import inspect
 import logging
 import threading
 import uuid
@@ -17,7 +18,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from deerflow.agents.thread_state import SandboxState, ThreadDataState, ThreadState
-from deerflow.models import create_chat_model
+from deerflow.models import close_loop_bound_async_clients, create_chat_model
 from deerflow.subagents.config import SubagentConfig
 
 logger = logging.getLogger(__name__)
@@ -402,6 +403,9 @@ class SubagentExecutor:
                         task_obj.cancel()
                     loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
+                close_clients_result = close_loop_bound_async_clients()
+                if inspect.isawaitable(close_clients_result):
+                    loop.run_until_complete(close_clients_result)
                 loop.run_until_complete(loop.shutdown_asyncgens())
                 loop.run_until_complete(loop.shutdown_default_executor())
             except Exception:

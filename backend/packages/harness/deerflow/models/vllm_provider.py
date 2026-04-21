@@ -32,8 +32,9 @@ from langchain_core.messages import (
 )
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from langchain_openai import ChatOpenAI
 from langchain_openai.chat_models.base import _create_usage_metadata
+
+from deerflow.models.openai_compat_provider import LoopBoundOpenAIChatModel
 
 
 def _normalize_vllm_chat_template_kwargs(payload: dict[str, Any]) -> None:
@@ -156,7 +157,7 @@ def _restore_reasoning_field(payload_msg: dict[str, Any], orig_msg: AIMessage) -
         payload_msg["reasoning"] = reasoning
 
 
-class VllmChatModel(ChatOpenAI):
+class VllmChatModel(LoopBoundOpenAIChatModel):
     """ChatOpenAI variant that preserves vLLM reasoning fields across turns."""
 
     model_config = {"arbitrary_types_allowed": True}

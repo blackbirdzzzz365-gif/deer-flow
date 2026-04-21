@@ -599,6 +599,61 @@ def test_openai_compatible_provider_passes_base_url(monkeypatch):
     assert captured.get("max_tokens") == 4096
 
 
+def test_openai_compatible_provider_is_canonicalized_to_loop_bound_wrapper(monkeypatch):
+    model = ModelConfig(
+        name="gateway-model",
+        display_name="Gateway Model",
+        description=None,
+        use="langchain_openai:ChatOpenAI",
+        model="gateway-model",
+        base_url="https://gateway.example/v1",
+        api_key="test-key",
+        supports_vision=True,
+        supports_thinking=False,
+    )
+    cfg = _make_app_config([model])
+    _patch_factory(monkeypatch, cfg)
+
+    captured_path: dict[str, str] = {}
+
+    def _resolve(path, base):
+        captured_path["path"] = path
+        return FakeChatModel
+
+    monkeypatch.setattr(factory_module, "resolve_class", _resolve)
+
+    factory_module.create_chat_model(name="gateway-model")
+
+    assert captured_path["path"] == "deerflow.models.openai_compat_provider:LoopBoundOpenAIChatModel"
+
+
+def test_plain_openai_provider_keeps_raw_chatopenai_use(monkeypatch):
+    model = ModelConfig(
+        name="plain-openai",
+        display_name="Plain OpenAI",
+        description=None,
+        use="langchain_openai:ChatOpenAI",
+        model="gpt-4o",
+        api_key="test-key",
+        supports_vision=True,
+        supports_thinking=False,
+    )
+    cfg = _make_app_config([model])
+    _patch_factory(monkeypatch, cfg)
+
+    captured_path: dict[str, str] = {}
+
+    def _resolve(path, base):
+        captured_path["path"] = path
+        return FakeChatModel
+
+    monkeypatch.setattr(factory_module, "resolve_class", _resolve)
+
+    factory_module.create_chat_model(name="plain-openai")
+
+    assert captured_path["path"] == "langchain_openai:ChatOpenAI"
+
+
 def test_openai_compatible_provider_multiple_models(monkeypatch):
     """Multiple models from the same OpenAI-compatible provider should coexist."""
     m1 = ModelConfig(
@@ -822,6 +877,44 @@ def test_openai_responses_api_settings_are_passed_to_chatopenai(monkeypatch):
 
     assert captured.get("use_responses_api") is True
     assert captured.get("output_version") == "responses/v1"
+
+
+def test_openai_responses_api_settings_survive_openai_compatible_canonicalization(monkeypatch):
+    model = ModelConfig(
+        name="gateway-responses",
+        display_name="Gateway Responses",
+        description=None,
+        use="langchain_openai:ChatOpenAI",
+        model="gateway-model",
+        api_key="test-key",
+        base_url="https://gateway.example/v1",
+        use_responses_api=True,
+        output_version="responses/v1",
+        supports_thinking=False,
+        supports_vision=True,
+    )
+    cfg = _make_app_config([model])
+    _patch_factory(monkeypatch, cfg)
+
+    captured_path: dict[str, str] = {}
+    captured_kwargs: dict = {}
+
+    class CapturingModel(FakeChatModel):
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            BaseChatModel.__init__(self, **kwargs)
+
+    def _resolve(path, base):
+        captured_path["path"] = path
+        return CapturingModel
+
+    monkeypatch.setattr(factory_module, "resolve_class", _resolve)
+
+    factory_module.create_chat_model(name="gateway-responses")
+
+    assert captured_path["path"] == "deerflow.models.openai_compat_provider:LoopBoundOpenAIChatModel"
+    assert captured_kwargs.get("use_responses_api") is True
+    assert captured_kwargs.get("output_version") == "responses/v1"
 
 
 # ---------------------------------------------------------------------------
