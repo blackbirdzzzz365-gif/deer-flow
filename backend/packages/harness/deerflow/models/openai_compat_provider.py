@@ -19,9 +19,9 @@ import logging
 import os
 import threading
 import traceback
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Self
+from typing import Any, Self
 from weakref import WeakKeyDictionary
 
 import openai

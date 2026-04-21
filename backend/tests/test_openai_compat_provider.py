@@ -18,7 +18,7 @@ class _FakeSyncOpenAI:
 
 
 class _FakeAsyncOpenAI:
-    instances: list["_FakeAsyncOpenAI"] = []
+    instances: list[_FakeAsyncOpenAI] = []
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
