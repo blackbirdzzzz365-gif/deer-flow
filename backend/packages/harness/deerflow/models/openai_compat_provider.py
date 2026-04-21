@@ -145,11 +145,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
         if self.n is not None and self.n > 1 and self.streaming:
             raise ValueError("n must be 1 when streaming.")
 
-        self.openai_organization = (
-            self.openai_organization
-            or os.getenv("OPENAI_ORG_ID")
-            or os.getenv("OPENAI_ORGANIZATION")
-        )
+        self.openai_organization = self.openai_organization or os.getenv("OPENAI_ORG_ID") or os.getenv("OPENAI_ORGANIZATION")
         self.openai_api_base = self.openai_api_base or os.getenv("OPENAI_API_BASE")
 
         if (
@@ -175,9 +171,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
         sync_api_key_value: str | Callable[[], str] | None = None
         async_api_key_value: str | Callable[[], Awaitable[str]] | None = None
         if self.openai_api_key is not None:
-            sync_api_key_value, async_api_key_value = _resolve_sync_and_async_api_keys(
-                self.openai_api_key
-            )
+            sync_api_key_value, async_api_key_value = _resolve_sync_and_async_api_keys(self.openai_api_key)
 
         client_params: dict[str, Any] = {
             "organization": self.openai_organization,
@@ -190,11 +184,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
             client_params["max_retries"] = self.max_retries
 
         if self.openai_proxy and (self.http_client or self.http_async_client):
-            raise ValueError(
-                "Cannot specify 'openai_proxy' if one of "
-                "'http_client'/'http_async_client' is already specified. "
-                f"Received:\n{self.openai_proxy=}\n{self.http_client=}\n{self.http_async_client=}"
-            )
+            raise ValueError(f"Cannot specify 'openai_proxy' if one of 'http_client'/'http_async_client' is already specified. Received:\n{self.openai_proxy=}\n{self.http_client=}\n{self.http_async_client=}")
 
         if not self.client:
             if sync_api_key_value is None:
@@ -209,8 +199,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
                         verify=global_ssl_context,
                     )
                 sync_specific = {
-                    "http_client": self.http_client
-                    or _get_default_httpx_client(self.openai_api_base, self.request_timeout),
+                    "http_client": self.http_client or _get_default_httpx_client(self.openai_api_base, self.request_timeout),
                     "api_key": sync_api_key_value,
                 }
                 self.root_client = openai.OpenAI(**client_params, **sync_specific)
@@ -239,6 +228,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
         self.root_async_client = None
         self._deerflow_async_client_params = dict(client_params)
         if self.openai_proxy:
+
             def _http_client_factory():
                 import httpx
 
@@ -247,6 +237,7 @@ class LoopBoundOpenAIChatModel(ChatOpenAI):
                     verify=global_ssl_context,
                 )
         else:
+
             def _http_client_factory():
                 return _get_default_async_httpx_client(
                     self.openai_api_base,

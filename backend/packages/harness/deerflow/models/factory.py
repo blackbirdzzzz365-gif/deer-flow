@@ -39,9 +39,7 @@ def _vllm_disable_chat_template_kwargs(chat_template_kwargs: dict) -> dict:
 
 def _canonicalize_model_use(model_use: str, model_settings: dict[str, Any]) -> str:
     """Route raw OpenAI-compatible ChatOpenAI configs through DeerFlow's safe wrapper."""
-    if model_use in _RAW_OPENAI_CHAT_MODEL_USES and (
-        model_settings.get("base_url") or model_settings.get("openai_api_base")
-    ):
+    if model_use in _RAW_OPENAI_CHAT_MODEL_USES and (model_settings.get("base_url") or model_settings.get("openai_api_base")):
         return _LOOP_BOUND_OPENAI_CHAT_MODEL_USE
     return model_use
 
