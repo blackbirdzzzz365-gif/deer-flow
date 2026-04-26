@@ -155,6 +155,8 @@ if [[ -d "${seed_agents_dir}" ]]; then
     if [[ ! -d "${target_agent_dir}" ]]; then
       mkdir -p "${target_agent_dir}"
       cp -R "${seed_agent_dir}/." "${target_agent_dir}/"
+    elif [[ -f "${seed_agent_dir}/config.yaml" ]]; then
+      cp "${seed_agent_dir}/config.yaml" "${target_agent_dir}/config.yaml"
     fi
   done
 fi

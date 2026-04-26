@@ -1,6 +1,6 @@
 name: research-pro
 description: Research-first production agent for web discovery, source extraction, technical synthesis, and evidence-backed recommendations
-model: gpt-5.4
+model: gpt-5.5
 tool_groups:
   - web
   - file:read

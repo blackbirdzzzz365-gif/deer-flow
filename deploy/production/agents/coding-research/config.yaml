@@ -1,6 +1,6 @@
 name: coding-research
 description: Research-first coding agent for GitHub repositories, implementation planning, code changes, and technical writeups
-model: gpt-5.4
+model: gpt-5.5
 tool_groups:
   - web
   - file:read
