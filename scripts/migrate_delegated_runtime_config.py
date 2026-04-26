@@ -69,10 +69,16 @@ def find_child_block(lines: list[str], parent: str, child: str) -> list[str]:
 
 
 def required_lines(block: list[str]) -> list[str]:
-    return [line.strip() for line in block if line.strip() and not line.lstrip().startswith("#")]
+    return [
+        line.strip()
+        for line in block
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
 
 
-def validate_required_lines(config_block: list[str], template_block: list[str], label: str, config_path: Path) -> None:
+def validate_required_lines(
+    config_block: list[str], template_block: list[str], label: str, config_path: Path
+) -> None:
     existing = set(required_lines(config_block))
     missing = [line for line in required_lines(template_block) if line not in existing]
     if missing:
@@ -84,7 +90,9 @@ def validate_required_lines(config_block: list[str], template_block: list[str], 
         )
 
 
-def ensure_top_level_block(config: list[str], template: list[str], key: str, config_path: Path) -> tuple[list[str], bool]:
+def ensure_top_level_block(
+    config: list[str], template: list[str], key: str, config_path: Path
+) -> tuple[list[str], bool]:
     existing_range = find_top_level_block(config, key)
     if existing_range is not None:
         template_range = find_top_level_block(template, key)
@@ -114,7 +122,36 @@ def ensure_top_level_block(config: list[str], template: list[str], key: str, con
     return config, True
 
 
-def ensure_child_block(config: list[str], template: list[str], parent: str, child: str, config_path: Path) -> tuple[list[str], bool]:
+def sync_top_level_block(
+    config: list[str], template: list[str], key: str
+) -> tuple[list[str], bool]:
+    template_range = find_top_level_block(template, key)
+    if template_range is None:
+        raise SystemExit(f"Template is missing required {key}: block")
+    template_start, template_end = template_range
+    template_block = template[template_start:template_end]
+
+    existing_range = find_top_level_block(config, key)
+    if existing_range is None:
+        if config and not config[-1].endswith("\n"):
+            config[-1] += "\n"
+        if config and config[-1].strip():
+            config.append("\n")
+        config.extend(template_block)
+        if config and config[-1].strip():
+            config.append("\n")
+        return config, True
+
+    existing_start, existing_end = existing_range
+    if config[existing_start:existing_end] == template_block:
+        return config, False
+
+    return config[:existing_start] + template_block + config[existing_end:], True
+
+
+def ensure_child_block(
+    config: list[str], template: list[str], parent: str, child: str, config_path: Path
+) -> tuple[list[str], bool]:
     parent_range = find_top_level_block(config, parent)
     if parent_range is None:
         return ensure_top_level_block(config, template, parent, config_path)
@@ -129,7 +166,9 @@ def ensure_child_block(config: list[str], template: list[str], parent: str, chil
                 child_start = idx
                 break
         if child_start is None:
-            raise SystemExit(f"Existing {parent}: block state is inconsistent for {child}")
+            raise SystemExit(
+                f"Existing {parent}: block state is inconsistent for {child}"
+            )
         for idx in range(child_start + 1, end):
             if next_child_re.match(config[idx]):
                 child_end = idx
@@ -156,9 +195,17 @@ def migrate(config_path: Path, template_path: Path) -> bool:
     template_lines = read_lines(template_path)
     changed = False
 
-    config_lines, did_change = ensure_child_block(config_lines, template_lines, "acp_agents", "openhands", config_path)
+    config_lines, did_change = sync_top_level_block(
+        config_lines, template_lines, "models"
+    )
     changed = changed or did_change
-    config_lines, did_change = ensure_top_level_block(config_lines, template_lines, "feynman", config_path)
+    config_lines, did_change = ensure_child_block(
+        config_lines, template_lines, "acp_agents", "openhands", config_path
+    )
+    changed = changed or did_change
+    config_lines, did_change = ensure_top_level_block(
+        config_lines, template_lines, "feynman", config_path
+    )
     changed = changed or did_change
 
     if changed:
@@ -168,7 +215,10 @@ def migrate(config_path: Path, template_path: Path) -> bool:
 
 def main() -> int:
     if len(sys.argv) != 3:
-        print("Usage: migrate_delegated_runtime_config.py <config.yaml> <config.template.yaml>", file=sys.stderr)
+        print(
+            "Usage: migrate_delegated_runtime_config.py <config.yaml> <config.template.yaml>",
+            file=sys.stderr,
+        )
         return 2
 
     config_path = Path(sys.argv[1])

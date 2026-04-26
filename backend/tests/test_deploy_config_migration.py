@@ -44,6 +44,45 @@ def test_delegated_runtime_config_migration_appends_missing_sections(tmp_path):
     assert "enabled: true" in migrated
 
 
+def test_delegated_runtime_config_migration_syncs_production_models(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "config_version: 8",
+                "",
+                "models:",
+                "  - name: gpt-5.4",
+                "    display_name: GPT-5.4 (9router)",
+                "    use: langchain_openai:ChatOpenAI",
+                "    model: cx/gpt-5.4",
+                "    api_key: $NINEROUTER_API_KEY",
+                "    base_url: https://9router.blackbirdzzzz.art/v1",
+                "    reasoning_effort: high",
+                "    request_timeout: 600.0",
+                "    max_retries: 2",
+                "    supports_thinking: true",
+                "    supports_reasoning_effort: true",
+                "",
+                "sandbox:",
+                "  use: deerflow.sandbox.local:LocalSandboxProvider",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_migration(config_path)
+
+    assert result.returncode == 0
+    migrated = config_path.read_text(encoding="utf-8")
+    assert "name: gpt-5.5" in migrated
+    assert "model: cx/gpt-5.5" in migrated
+    assert "name: claude-opus-4.7" in migrated
+    assert "model: cc/claude-opus-4-7" in migrated
+    assert "gpt-5.4" not in migrated
+
+
 def test_delegated_runtime_config_migration_fails_on_partial_openhands(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(

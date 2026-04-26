@@ -6,10 +6,10 @@ token_usage:
   enabled: true
 
 models:
-  - name: gpt-5.4
-    display_name: GPT-5.4 (9router)
+  - name: gpt-5.5
+    display_name: GPT-5.5 (9router)
     use: langchain_openai:ChatOpenAI
-    model: cx/gpt-5.4
+    model: cx/gpt-5.5
     api_key: $NINEROUTER_API_KEY
     base_url: https://9router.blackbirdzzzz.art/v1
     reasoning_effort: high
@@ -19,9 +19,9 @@ models:
     supports_reasoning_effort: true
 
   - name: deer-flow
-    display_name: Deer Flow (9router)
+    display_name: Deer Flow GPT-5.5 (9router)
     use: langchain_openai:ChatOpenAI
-    model: deer-flow
+    model: cx/gpt-5.5
     api_key: $NINEROUTER_API_KEY
     base_url: https://9router.blackbirdzzzz.art/v1
     reasoning_effort: high
@@ -30,17 +30,16 @@ models:
     supports_thinking: true
     supports_reasoning_effort: true
 
-  - name: claude-sonnet-4.6
-    display_name: Claude Sonnet 4.6 (legacy alias via 9router)
+  - name: claude-opus-4.7
+    display_name: Claude Opus 4.7 (9router)
     use: langchain_openai:ChatOpenAI
-    model: deer-flow
+    model: cc/claude-opus-4-7
     api_key: $NINEROUTER_API_KEY
     base_url: https://9router.blackbirdzzzz.art/v1
-    reasoning_effort: high
     request_timeout: 600.0
     max_retries: 2
     supports_thinking: true
-    supports_reasoning_effort: true
+    supports_reasoning_effort: false
 
 tool_groups:
   - name: web
