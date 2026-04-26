@@ -680,13 +680,9 @@ def _build_delegated_runtime_section() -> str:
         "- Use `task()` for parallel bounded exploration when the work can be split into multiple sub-tasks.",
     ]
     if has_feynman:
-        lines.append(
-            "- Use `invoke_feynman` for evidence-heavy research, literature review, compare/audit work, or when you need artifact-rich synthesis with citations."
-        )
+        lines.append("- Use `invoke_feynman` for evidence-heavy research, literature review, compare/audit work, or when you need artifact-rich synthesis with citations.")
     if has_openhands:
-        lines.append(
-            '- Use `invoke_acp_agent(agent="openhands", ...)` for isolated coding, browser debugging, repo-heavy execution, and patch generation.'
-        )
+        lines.append('- Use `invoke_acp_agent(agent="openhands", ...)` for isolated coding, browser debugging, repo-heavy execution, and patch generation.')
     lines.extend(
         [
             "- For delegated runtimes, always provide a concise `description` plus the real task `prompt`.",
@@ -755,9 +751,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     acp_section = _build_acp_section()
     delegated_runtime_section = _build_delegated_runtime_section()
     custom_mounts_section = _build_custom_mounts_section()
-    acp_and_mounts_section = "\n".join(
-        section for section in (acp_section, delegated_runtime_section, custom_mounts_section) if section
-    )
+    acp_and_mounts_section = "\n".join(section for section in (acp_section, delegated_runtime_section, custom_mounts_section) if section)
 
     # Format the prompt with dynamic skills and memory
     prompt = SYSTEM_PROMPT_TEMPLATE.format(

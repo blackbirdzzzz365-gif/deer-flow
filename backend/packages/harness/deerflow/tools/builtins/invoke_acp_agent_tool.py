@@ -470,11 +470,7 @@ def build_invoke_acp_agent_tool(agents: dict) -> BaseTool:
                 result_file=_result_file_virtual_path(run_paths),
                 artifacts=artifacts,
             )
-            return (
-                f"{'OpenHands' if agent == 'openhands' else agent} completed.\n\n"
-                f"Summary:\n{summary_text}\n\n"
-                f"Artifacts:\n{_format_artifact_lines(artifacts)}"
-            )
+            return f"{'OpenHands' if agent == 'openhands' else agent} completed.\n\nSummary:\n{summary_text}\n\nArtifacts:\n{_format_artifact_lines(artifacts)}"
         except Exception as exc:
             error = _format_invocation_error(agent, cmd, exc)
             run_paths.log_file.write_text(f"{error}\n", encoding="utf-8")
@@ -497,11 +493,7 @@ def build_invoke_acp_agent_tool(agents: dict) -> BaseTool:
                 result_file=_result_file_virtual_path(run_paths),
                 error=error,
             )
-            return (
-                f"{'OpenHands' if agent == 'openhands' else agent} failed.\n\n"
-                f"Reason:\n{error}\n\n"
-                f"Result file:\n- {_result_file_virtual_path(run_paths)}"
-            )
+            return f"{'OpenHands' if agent == 'openhands' else agent} failed.\n\nReason:\n{error}\n\nResult file:\n- {_result_file_virtual_path(run_paths)}"
 
     invoke_acp_agent.description = description
     return invoke_acp_agent

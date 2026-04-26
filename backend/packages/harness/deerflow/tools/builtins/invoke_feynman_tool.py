@@ -278,10 +278,7 @@ def build_invoke_feynman_tool(feynman_config: FeynmanConfig) -> BaseTool:
                 stderr=asyncio.subprocess.STDOUT,
             )
         except FileNotFoundError:
-            error = (
-                f"Command '{feynman_config.command}' was not found on PATH. "
-                "Install the Feynman CLI or update `feynman.command` in config.yaml."
-            )
+            error = f"Command '{feynman_config.command}' was not found on PATH. Install the Feynman CLI or update `feynman.command` in config.yaml."
             write_result_file(
                 paths=run_paths,
                 status="failed",

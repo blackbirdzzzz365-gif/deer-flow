@@ -506,9 +506,7 @@ async def test_invoke_openhands_copies_seed_paths_collects_artifacts_and_emits_e
             PROTOCOL_VERSION="2026-03-24",
             Client=DummyClient,
             RequestError=DummyRequestError,
-            spawn_agent_process=lambda client, cmd, *args, env=None, cwd: DummyProcessContext(
-                client, cmd, *args, env=env, cwd=cwd
-            ),
+            spawn_agent_process=lambda client, cmd, *args, env=None, cwd: DummyProcessContext(client, cmd, *args, env=env, cwd=cwd),
             text_block=lambda text: {"type": "text", "text": text},
         ),
     )
