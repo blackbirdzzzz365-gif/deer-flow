@@ -226,7 +226,7 @@ export function InputBox({
           mode === "ultra"
             ? "high"
             : mode === "pro"
-              ? "medium"
+              ? "high"
               : mode === "thinking"
                 ? "low"
                 : "minimal",

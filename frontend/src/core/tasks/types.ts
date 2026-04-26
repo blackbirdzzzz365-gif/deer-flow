@@ -6,7 +6,12 @@ export interface Subtask {
   subagent_type: string;
   description: string;
   latestMessage?: AIMessage;
+  latestText?: string;
   prompt: string;
   result?: string;
   error?: string;
+  runtime?: "subagent" | "openhands" | "feynman" | "acp";
+  runId?: string;
+  artifacts?: string[];
+  resultFile?: string;
 }

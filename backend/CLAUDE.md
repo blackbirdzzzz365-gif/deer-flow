@@ -561,3 +561,5 @@ See `docs/` directory for detailed documentation:
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+- [../docs/plans/2026-04-19-openhands-feynman-solution-architecture.md](../docs/plans/2026-04-19-openhands-feynman-solution-architecture.md) - architecture decision for integrating OpenHands and Feynman into DeerFlow 2
+- [../docs/plans/2026-04-19-openhands-feynman-implementation-detailed.md](../docs/plans/2026-04-19-openhands-feynman-implementation-detailed.md) - implementation-ready rollout plan with file, tool, config, and UI changes

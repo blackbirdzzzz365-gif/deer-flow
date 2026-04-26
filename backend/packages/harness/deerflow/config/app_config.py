@@ -12,6 +12,7 @@ from deerflow.config.acp_config import load_acp_config_from_dict
 from deerflow.config.agents_api_config import AgentsApiConfig, load_agents_api_config_from_dict
 from deerflow.config.checkpointer_config import CheckpointerConfig, load_checkpointer_config_from_dict
 from deerflow.config.extensions_config import ExtensionsConfig
+from deerflow.config.feynman_config import FeynmanConfig, load_feynman_config_from_dict
 from deerflow.config.guardrails_config import GuardrailsConfig, load_guardrails_config_from_dict
 from deerflow.config.memory_config import MemoryConfig, load_memory_config_from_dict
 from deerflow.config.model_config import ModelConfig
@@ -29,6 +30,24 @@ from deerflow.config.tool_search_config import ToolSearchConfig, load_tool_searc
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+_NULL_TO_DEFAULT_MAP: dict[str, Any] = {
+    "token_usage": {},
+    "models": [],
+    "tools": [],
+    "tool_groups": [],
+    "skills": {},
+    "skill_evolution": {},
+    "feynman": {},
+    "tool_search": {},
+    "title": {},
+    "summarization": {},
+    "memory": {},
+    "agents_api": {},
+    "subagents": {},
+    "guardrails": {},
+    "circuit_breaker": {},
+}
 
 
 class CircuitBreakerConfig(BaseModel):
@@ -57,6 +76,7 @@ class AppConfig(BaseModel):
     skills: SkillsConfig = Field(default_factory=SkillsConfig, description="Skills configuration")
     skill_evolution: SkillEvolutionConfig = Field(default_factory=SkillEvolutionConfig, description="Agent-managed skill evolution configuration")
     extensions: ExtensionsConfig = Field(default_factory=ExtensionsConfig, description="Extensions configuration (MCP servers and skills state)")
+    feynman: FeynmanConfig = Field(default_factory=FeynmanConfig, description="Feynman delegated runtime configuration")
     tool_search: ToolSearchConfig = Field(default_factory=ToolSearchConfig, description="Tool search / deferred loading configuration")
     title: TitleConfig = Field(default_factory=TitleConfig, description="Automatic title generation configuration")
     summarization: SummarizationConfig = Field(default_factory=SummarizationConfig, description="Conversation summarization configuration")
@@ -114,6 +134,7 @@ class AppConfig(BaseModel):
         cls._check_config_version(config_data, resolved_path)
 
         config_data = cls.resolve_env_variables(config_data)
+        config_data = cls._normalize_nullable_sections(config_data)
 
         # Load title config if present
         if "title" in config_data:
@@ -157,6 +178,7 @@ class AppConfig(BaseModel):
 
         # Always refresh ACP agent config so removed entries do not linger across reloads.
         load_acp_config_from_dict(config_data.get("acp_agents", {}))
+        load_feynman_config_from_dict(config_data.get("feynman") or {})
 
         # Load extensions config separately (it's in a different file)
         extensions_config = ExtensionsConfig.from_file()
@@ -164,6 +186,20 @@ class AppConfig(BaseModel):
 
         result = cls.model_validate(config_data)
         return result
+
+    @classmethod
+    def _normalize_nullable_sections(cls, config_data: dict[str, Any]) -> dict[str, Any]:
+        """Treat explicit YAML nulls in optional sections as missing/default values."""
+        normalized = dict(config_data)
+        for key, default_value in _NULL_TO_DEFAULT_MAP.items():
+            if normalized.get(key, ...) is None:
+                if isinstance(default_value, list):
+                    normalized[key] = list(default_value)
+                elif isinstance(default_value, dict):
+                    normalized[key] = dict(default_value)
+                else:
+                    normalized[key] = default_value
+        return normalized
 
     @classmethod
     def _check_config_version(cls, config_data: dict, config_path: Path) -> None:

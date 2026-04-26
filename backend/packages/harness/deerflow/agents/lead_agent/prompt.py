@@ -646,10 +646,55 @@ def _build_acp_section() -> str:
     return (
         "\n**ACP Agent Tasks (invoke_acp_agent):**\n"
         "- ACP agents (e.g. codex, claude_code) run in their own independent workspace — NOT in `/mnt/user-data/`\n"
-        "- When writing prompts for ACP agents, describe the task only — do NOT reference `/mnt/user-data` paths\n"
+        "- When writing prompts for ACP agents, describe the task only — do NOT reference `/mnt/user-data` paths directly\n"
+        "- If ACP agents need local context files, pass them via `seed_paths` so DeerFlow copies them into the ACP workspace first\n"
         "- ACP agent results are accessible at `/mnt/acp-workspace/` (read-only) — use `ls`, `read_file`, or `bash cp` to retrieve output files\n"
         "- To deliver ACP output to the user: copy from `/mnt/acp-workspace/<file>` to `/mnt/user-data/outputs/<file>`, then use `present_file`"
     )
+
+
+def _build_delegated_runtime_section() -> str:
+    """Build routing guidance for delegated runtimes when they are available."""
+    has_openhands = False
+    has_feynman = False
+    try:
+        from deerflow.config.acp_config import get_acp_agents
+
+        has_openhands = "openhands" in get_acp_agents()
+    except Exception:
+        pass
+
+    try:
+        from deerflow.config.feynman_config import get_feynman_config
+
+        has_feynman = get_feynman_config().enabled
+    except Exception:
+        pass
+
+    if not has_openhands and not has_feynman:
+        return ""
+
+    lines = [
+        "\n**Delegated Runtime Routing:**",
+        "- Prefer direct DeerFlow tools first for small local reads, writes, fetches, and short shell actions.",
+        "- Use `task()` for parallel bounded exploration when the work can be split into multiple sub-tasks.",
+    ]
+    if has_feynman:
+        lines.append(
+            "- Use `invoke_feynman` for evidence-heavy research, literature review, compare/audit work, or when you need artifact-rich synthesis with citations."
+        )
+    if has_openhands:
+        lines.append(
+            '- Use `invoke_acp_agent(agent="openhands", ...)` for isolated coding, browser debugging, repo-heavy execution, and patch generation.'
+        )
+    lines.extend(
+        [
+            "- For delegated runtimes, always provide a concise `description` plus the real task `prompt`.",
+            "- If a delegated runtime needs local repo or upload context, pass those files via `seed_paths` instead of mentioning raw `/mnt/user-data` paths.",
+            "- After a delegated runtime finishes, inspect its `deerflow-result.json` and main artifacts before producing your final answer.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _build_custom_mounts_section() -> str:
@@ -708,8 +753,11 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
 
     # Build ACP agent section only if ACP agents are configured
     acp_section = _build_acp_section()
+    delegated_runtime_section = _build_delegated_runtime_section()
     custom_mounts_section = _build_custom_mounts_section()
-    acp_and_mounts_section = "\n".join(section for section in (acp_section, custom_mounts_section) if section)
+    acp_and_mounts_section = "\n".join(
+        section for section in (acp_section, delegated_runtime_section, custom_mounts_section) if section
+    )
 
     # Format the prompt with dynamic skills and memory
     prompt = SYSTEM_PROMPT_TEMPLATE.format(

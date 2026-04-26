@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from langchain.chat_models import BaseChatModel
 
@@ -7,6 +8,12 @@ from deerflow.reflection import resolve_class
 from deerflow.tracing import build_tracing_callbacks
 
 logger = logging.getLogger(__name__)
+
+_RAW_OPENAI_CHAT_MODEL_USES = {
+    "langchain_openai:ChatOpenAI",
+    "langchain_openai.ChatOpenAI",
+}
+_LOOP_BOUND_OPENAI_CHAT_MODEL_USE = "deerflow.models.openai_compat_provider:LoopBoundOpenAIChatModel"
 
 
 def _deep_merge_dicts(base: dict | None, override: dict) -> dict:
@@ -30,6 +37,15 @@ def _vllm_disable_chat_template_kwargs(chat_template_kwargs: dict) -> dict:
     return disable_kwargs
 
 
+def _canonicalize_model_use(model_use: str, model_settings: dict[str, Any]) -> str:
+    """Route raw OpenAI-compatible ChatOpenAI configs through DeerFlow's safe wrapper."""
+    if model_use in _RAW_OPENAI_CHAT_MODEL_USES and (
+        model_settings.get("base_url") or model_settings.get("openai_api_base")
+    ):
+        return _LOOP_BOUND_OPENAI_CHAT_MODEL_USE
+    return model_use
+
+
 def create_chat_model(name: str | None = None, thinking_enabled: bool = False, **kwargs) -> BaseChatModel:
     """Create a chat model instance from the config.
 
@@ -45,7 +61,6 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
     model_config = config.get_model_config(name)
     if model_config is None:
         raise ValueError(f"Model {name} not found in config") from None
-    model_class = resolve_class(model_config.use, BaseChatModel)
     model_settings_from_config = model_config.model_dump(
         exclude_none=True,
         exclude={
@@ -61,6 +76,8 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             "supports_vision",
         },
     )
+    model_use = _canonicalize_model_use(model_config.use, model_settings_from_config)
+    model_class = resolve_class(model_use, BaseChatModel)
     # Compute effective when_thinking_enabled by merging in the `thinking` shortcut field.
     # The `thinking` shortcut is equivalent to setting when_thinking_enabled["thinking"].
     has_thinking_settings = (model_config.when_thinking_enabled is not None) or (model_config.thinking is not None)

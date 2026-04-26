@@ -1,5 +1,6 @@
 from .app_config import get_app_config
 from .extensions_config import ExtensionsConfig, get_extensions_config
+from .feynman_config import FeynmanConfig, get_feynman_config
 from .memory_config import MemoryConfig, get_memory_config
 from .paths import Paths, get_paths
 from .skill_evolution_config import SkillEvolutionConfig
@@ -20,6 +21,8 @@ __all__ = [
     "SkillsConfig",
     "ExtensionsConfig",
     "get_extensions_config",
+    "FeynmanConfig",
+    "get_feynman_config",
     "MemoryConfig",
     "get_memory_config",
     "get_tracing_config",

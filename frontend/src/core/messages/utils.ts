@@ -308,7 +308,11 @@ export function extractPresentFilesFromMessage(message: Message) {
 
 export function hasSubagent(message: AIMessage) {
   for (const toolCall of message.tool_calls ?? []) {
-    if (toolCall.name === "task") {
+    if (
+      toolCall.name === "task" ||
+      toolCall.name === "invoke_feynman" ||
+      toolCall.name === "invoke_acp_agent"
+    ) {
       return true;
     }
   }

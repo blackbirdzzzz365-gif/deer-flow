@@ -13,6 +13,7 @@ import { useI18n } from "../i18n/hooks";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import { useUpdateSubtask } from "../tasks/context";
+import type { Subtask } from "../tasks/types";
 import type { UploadedFileInfo } from "../uploads";
 import { promptInputFilePartToFile, uploadFiles } from "../uploads";
 
@@ -21,6 +22,25 @@ import type { AgentThread, AgentThreadState } from "./types";
 export type ToolEndEvent = {
   name: string;
   data: unknown;
+};
+
+type DelegatedRuntimeEvent = {
+  type:
+    | "delegated_runtime_started"
+    | "delegated_runtime_progress"
+    | "delegated_runtime_completed"
+    | "delegated_runtime_failed";
+  tool_call_id: string;
+  run_id: string;
+  runtime: "feynman" | "openhands" | "acp";
+  description: string;
+  phase: "prepare" | "invoke" | "collect" | "complete";
+  message: string;
+  prompt?: string;
+  virtual_dir?: string;
+  result_file?: string;
+  artifacts?: string[];
+  error?: string;
 };
 
 export type ThreadStreamOptions = {
@@ -132,6 +152,20 @@ function getStreamErrorMessage(error: unknown): string {
     }
   }
   return "Request failed.";
+}
+
+function isDelegatedRuntimeEvent(
+  event: unknown,
+): event is DelegatedRuntimeEvent {
+  if (typeof event !== "object" || event === null || !("type" in event)) {
+    return false;
+  }
+  return (
+    event.type === "delegated_runtime_started" ||
+    event.type === "delegated_runtime_progress" ||
+    event.type === "delegated_runtime_completed" ||
+    event.type === "delegated_runtime_failed"
+  );
 }
 
 export function useThreadStream({
@@ -270,6 +304,28 @@ export function useThreadStream({
           message: AIMessage;
         };
         updateSubtask({ id: e.task_id, latestMessage: e.message });
+        return;
+      }
+
+      if (isDelegatedRuntimeEvent(event)) {
+        const update: Partial<Subtask> & { id: string } = {
+          id: event.tool_call_id,
+          runtime: event.runtime,
+          runId: event.run_id,
+          description: event.description,
+          latestText: event.message,
+          resultFile: event.result_file,
+          artifacts: event.artifacts,
+          error: event.error,
+          status:
+            event.type === "delegated_runtime_completed"
+              ? "completed"
+              : event.type === "delegated_runtime_failed"
+                ? "failed"
+                : "in_progress",
+          subagent_type: event.runtime,
+        };
+        updateSubtask(event.prompt !== undefined ? { ...update, prompt: event.prompt } : update);
         return;
       }
 
@@ -498,7 +554,7 @@ export function useThreadStream({
                 (context.mode === "ultra"
                   ? "high"
                   : context.mode === "pro"
-                    ? "medium"
+                    ? "high"
                     : context.mode === "thinking"
                       ? "low"
                       : undefined),

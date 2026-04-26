@@ -25,10 +25,11 @@ from typing import Any
 
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import AIMessage
-from langchain_openai import ChatOpenAI
+
+from deerflow.models.openai_compat_provider import LoopBoundOpenAIChatModel
 
 
-class PatchedChatOpenAI(ChatOpenAI):
+class PatchedChatOpenAI(LoopBoundOpenAIChatModel):
     """ChatOpenAI with ``thought_signature`` preservation for Gemini thinking via OpenAI gateway.
 
     When using Gemini with thinking enabled via an OpenAI-compatible gateway,

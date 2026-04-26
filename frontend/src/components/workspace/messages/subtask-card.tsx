@@ -5,7 +5,7 @@ import {
   Loader2Icon,
   XCircleIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Streamdown } from "streamdown";
 
 import {
@@ -41,16 +41,19 @@ export function SubtaskCard({
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(true);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
-  const task = useSubtask(taskId)!;
-  const icon = useMemo(() => {
-    if (task.status === "completed") {
-      return <CheckCircleIcon className="size-3" />;
-    } else if (task.status === "failed") {
-      return <XCircleIcon className="size-3 text-red-500" />;
-    } else if (task.status === "in_progress") {
-      return <Loader2Icon className="size-3 animate-spin" />;
-    }
-  }, [task.status]);
+  const task = useSubtask(taskId);
+  if (!task) {
+    return null;
+  }
+  const progressText = task.latestText ?? null;
+  const icon =
+    task.status === "completed" ? (
+      <CheckCircleIcon className="size-3" />
+    ) : task.status === "failed" ? (
+      <XCircleIcon className="size-3 text-red-500" />
+    ) : (
+      <Loader2Icon className="size-3 animate-spin" />
+    );
   return (
     <ChainOfThought
       className={cn("relative w-full gap-2 rounded-lg border py-0", className)}
@@ -102,12 +105,14 @@ export function SubtaskCard({
                     {icon}
                     <FlipDisplay
                       className="max-w-[420px] truncate pb-1"
-                      uniqueKey={task.latestMessage?.id ?? ""}
+                      uniqueKey={task.latestMessage?.id ?? progressText ?? ""}
                     >
                       {task.status === "in_progress" &&
                       task.latestMessage &&
                       hasToolCalls(task.latestMessage)
                         ? explainLastToolCall(task.latestMessage, t)
+                        : task.status === "in_progress" && progressText
+                          ? progressText
                         : t.subtasks[task.status]}
                     </FlipDisplay>
                   </div>
@@ -145,6 +150,16 @@ export function SubtaskCard({
                 {explainLastToolCall(task.latestMessage, t)}
               </ChainOfThoughtStep>
             )}
+          {task.status === "in_progress" &&
+            !task.latestMessage &&
+            progressText && (
+              <ChainOfThoughtStep
+                label={t.subtasks.in_progress}
+                icon={<Loader2Icon className="size-4 animate-spin" />}
+              >
+                {progressText}
+              </ChainOfThoughtStep>
+            )}
           {task.status === "completed" && (
             <>
               <ChainOfThoughtStep
@@ -159,16 +174,45 @@ export function SubtaskCard({
                       isLoading={false}
                       rehypePlugins={rehypePlugins}
                     />
+                  ) : progressText ? (
+                    <div>{progressText}</div>
                   ) : null
                 }
               ></ChainOfThoughtStep>
+              {task.artifacts && task.artifacts.length > 0 && (
+                <ChainOfThoughtStep
+                  label={
+                    <div className="text-sm">
+                      <div className="mb-2 font-medium">Artifacts</div>
+                      <ul className="list-disc pl-5">
+                        {task.artifacts.map((artifact) => (
+                          <li key={artifact} className="break-all">
+                            {artifact}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  }
+                ></ChainOfThoughtStep>
+              )}
             </>
           )}
           {task.status === "failed" && (
-            <ChainOfThoughtStep
-              label={<div className="text-red-500">{task.error}</div>}
-              icon={<XCircleIcon className="size-4 text-red-500" />}
-            ></ChainOfThoughtStep>
+            <>
+              <ChainOfThoughtStep
+                label={<div className="text-red-500">{task.error}</div>}
+                icon={<XCircleIcon className="size-4 text-red-500" />}
+              ></ChainOfThoughtStep>
+              {task.resultFile && (
+                <ChainOfThoughtStep
+                  label={
+                    <div className="text-muted-foreground text-sm break-all">
+                      Result file: {task.resultFile}
+                    </div>
+                  }
+                ></ChainOfThoughtStep>
+              )}
+            </>
           )}
         </ChainOfThoughtContent>
       </div>
