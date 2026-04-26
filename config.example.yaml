@@ -12,7 +12,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 7
+config_version: 8
 
 # ============================================================================
 # Logging
@@ -612,6 +612,40 @@ sandbox:
 #     # auto_approve_permissions: false  # Set to true to auto-approve ACP permission requests
 #     # env:                             # Optional: inject environment variables into the agent subprocess
 #     #   OPENAI_API_KEY: $OPENAI_API_KEY  # $VAR resolves from host environment
+#
+#   openhands:
+#     command: openhands
+#     args: ["acp", "--always-approve", "--override-with-envs"]
+#     description: OpenHands for isolated coding, browser debugging, and patch generation
+#     auto_approve_permissions: true
+#     env:
+#       RUNTIME: process
+#       LLM_MODEL: $OPENHANDS_LLM_MODEL
+#       LLM_API_KEY: $OPENHANDS_LLM_API_KEY
+#       LLM_BASE_URL: $OPENHANDS_LLM_BASE_URL
+#       LLM_CUSTOM_LLM_PROVIDER: $OPENHANDS_LLM_CUSTOM_LLM_PROVIDER
+
+# ============================================================================
+# Feynman Delegated Runtime
+# ============================================================================
+# Configure the built-in `invoke_feynman` tool for delegated research runs.
+
+# feynman:
+#   enabled: true
+#   command: feynman
+#   args: []
+#   timeout_seconds: 1800
+#   max_artifacts: 50
+#   max_log_chars: 20000
+#   workflows: ["research", "deepresearch", "lit", "review", "audit", "compare", "draft"]
+#   artifact_globs:
+#     - outputs/**/*
+#     - papers/**/*
+#     - notes/**/*
+#     - "*.md"
+#     - "*.json"
+#   env:
+#     FEYNMAN_MODEL: $FEYNMAN_MODEL
 
 # ============================================================================
 # Skills Configuration

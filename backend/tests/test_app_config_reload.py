@@ -8,6 +8,7 @@ import yaml
 
 from deerflow.config.agents_api_config import get_agents_api_config
 from deerflow.config.app_config import get_app_config, reset_app_config
+from deerflow.config.feynman_config import get_feynman_config
 
 
 def _write_config(path: Path, *, model_name: str, supports_thinking: bool) -> None:
@@ -35,6 +36,7 @@ def _write_config_with_agents_api(
     model_name: str,
     supports_thinking: bool,
     agents_api: dict | None = None,
+    feynman: dict | None = None,
 ) -> None:
     config = {
         "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
@@ -49,6 +51,8 @@ def _write_config_with_agents_api(
     }
     if agents_api is not None:
         config["agents_api"] = agents_api
+    if feynman is not None:
+        config["feynman"] = feynman
 
     path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
@@ -137,5 +141,72 @@ def test_get_app_config_resets_agents_api_config_when_section_removed(tmp_path, 
         reloaded = get_app_config()
         assert reloaded is not initial
         assert get_agents_api_config().enabled is False
+    finally:
+        reset_app_config()
+
+
+def test_get_app_config_resets_feynman_config_when_section_removed(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    _write_config_with_agents_api(
+        config_path,
+        model_name="first-model",
+        supports_thinking=False,
+        feynman={"enabled": True, "command": "feynman-custom"},
+    )
+
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+    reset_app_config()
+
+    try:
+        initial = get_app_config()
+        assert initial.feynman.enabled is True
+        assert get_feynman_config().command == "feynman-custom"
+
+        _write_config_with_agents_api(
+            config_path,
+            model_name="first-model",
+            supports_thinking=False,
+        )
+        next_mtime = config_path.stat().st_mtime + 5
+        os.utime(config_path, (next_mtime, next_mtime))
+
+        reloaded = get_app_config()
+        assert reloaded is not initial
+        assert get_feynman_config().enabled is False
+        assert get_feynman_config().command == "feynman"
+    finally:
+        reset_app_config()
+
+
+def test_get_app_config_treats_null_sections_as_defaults(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
+                "models": None,
+                "tools": None,
+                "tool_groups": None,
+                "feynman": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+    reset_app_config()
+
+    try:
+        config = get_app_config()
+        assert config.models == []
+        assert config.tools == []
+        assert config.tool_groups == []
+        assert config.feynman.enabled is False
     finally:
         reset_app_config()

@@ -709,6 +709,8 @@ All dict-returning methods are validated against Gateway Pydantic response model
 - [Configuration Guide](backend/docs/CONFIGURATION.md) - Setup and configuration instructions
 - [Architecture Overview](backend/CLAUDE.md) - Technical architecture details
 - [Backend Architecture](backend/README.md) - Backend architecture and API reference
+- [OpenHands + Feynman Solution Architecture](docs/plans/2026-04-19-openhands-feynman-solution-architecture.md) - integration architecture for delegated specialist runtimes
+- [OpenHands + Feynman Implementation Plan](docs/plans/2026-04-19-openhands-feynman-implementation-detailed.md) - file-by-file rollout plan for the DeerFlow 2 codebase
 
 ## ⚠️ Security Notice
 

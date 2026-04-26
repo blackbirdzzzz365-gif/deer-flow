@@ -42,6 +42,13 @@ if [[ -z "${NINEROUTER_API_KEY:-}" ]]; then
   exit 1
 fi
 
+for required_var in OPENHANDS_LLM_MODEL OPENHANDS_LLM_API_KEY OPENHANDS_LLM_BASE_URL OPENHANDS_LLM_CUSTOM_LLM_PROVIDER FEYNMAN_MODEL; do
+  if [[ -z "${!required_var:-}" ]]; then
+    echo "Missing ${required_var} in ${APP_DIR}/.env; required by OpenHands/Feynman production config" >&2
+    exit 1
+  fi
+done
+
 deploy_dir="${APP_DIR}/.deploy"
 config_dir="${APP_DIR}/config"
 state_file="${deploy_dir}/production-state.env"
@@ -100,6 +107,13 @@ write_secret_file() {
   chmod 600 "${destination}"
 }
 
+ensure_delegated_runtime_config() {
+  local config_path="${1}"
+  local template_path="${2}"
+
+  python3 scripts/migrate_delegated_runtime_config.py "${config_path}" "${template_path}"
+}
+
 if [[ ! -f "${config_template_path}" ]]; then
   config_template_path="${default_template_dir}/config.template.yaml"
 fi
@@ -116,11 +130,18 @@ if [[ ! -d "${mcp_source_dir}" ]]; then
   mcp_source_dir="${default_template_dir}/mcp"
 fi
 
-mkdir -p "${deploy_dir}" "${config_dir}" "${DEER_FLOW_HOME}" "${APP_DIR}/backend/.langgraph_api"
+mkdir -p \
+  "${deploy_dir}" \
+  "${config_dir}" \
+  "${DEER_FLOW_HOME}" \
+  "${DEER_FLOW_HOME}/openhands-home" \
+  "${DEER_FLOW_HOME}/feynman-home" \
+  "${APP_DIR}/backend/.langgraph_api"
 
 if [[ ! -f "${DEER_FLOW_CONFIG_PATH}" ]]; then
   cp "${config_template_path}" "${DEER_FLOW_CONFIG_PATH}"
 fi
+ensure_delegated_runtime_config "${DEER_FLOW_CONFIG_PATH}" "${config_template_path}"
 
 if [[ ! -f "${DEER_FLOW_EXTENSIONS_CONFIG_PATH}" ]]; then
   cp "${extensions_template_path}" "${DEER_FLOW_EXTENSIONS_CONFIG_PATH}"
@@ -226,6 +247,10 @@ EOF
 
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" pull
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" up -d --remove-orphans
+
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" exec -T langgraph sh -lc 'openhands --help >/dev/null && test -w /root/.openhands'
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" exec -T langgraph sh -lc 'feynman --help >/dev/null && test -w /root/.feynman'
+
 # nginx resolves Docker service names at startup, so it must restart after
 # backend/frontend containers are recreated to pick up the new gateway IP.
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" restart nginx

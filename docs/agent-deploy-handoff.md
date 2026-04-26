@@ -4,13 +4,13 @@ Use this note when an agent needs to deploy DeerFlow after a coding change.
 
 ## Current Production Target
 
-- Host: `backup-blackbird`
-- SSH: `ssh -p 44518 ubuntu@e1.chiasegpu.vn`
-- App dir: `/home/ubuntu/services/deerflow`
+- Host: `linuxvm`
+- SSH: `ssh linuxvm`
+- App dir: `/home/blackbird/services/deerflow`
 - Public domain: `deerflow.blackbirdzzzz.art`
-- GitHub runner label: `backup-blackbird-primary`
+- GitHub runner label: `linuxvm-primary`
 
-Production is not on `linuxvm` anymore.
+The old `backup-blackbird` route and `ssh -p 44518 ubuntu@e1.chiasegpu.vn` are stale and must not be used for current production work.
 
 ## Correct Deploy Sequence
 
@@ -23,8 +23,9 @@ Production is not on `linuxvm` anymore.
 5. Wait for the deploy workflow to finish green.
 6. Verify:
    - `curl -fsS https://deerflow.blackbirdzzzz.art/health`
-   - `ssh -p 44518 ubuntu@e1.chiasegpu.vn 'curl -fsS http://127.0.0.1:32026/health'`
-   - `ssh -p 44518 ubuntu@e1.chiasegpu.vn 'sed -n "1,20p" /home/ubuntu/services/deerflow/.deploy/production-state.env'`
+   - `ssh linuxvm 'curl -fsS http://127.0.0.1:32026/health'`
+   - `ssh linuxvm 'sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'`
+   - `ssh linuxvm '~/bin/prod-audit'`
 
 If you want the repo helper to enforce those gates in one command, run:
 
@@ -35,8 +36,12 @@ scripts/trigger_production_deploy.sh
 ## Important Project-Specific Facts
 
 - The host `.env` must keep:
-  - `DEPLOY_TEMPLATE_DIR=deploy/backup-blackbird`
-  - `COMPOSE_FILES=docker-compose.production.yml,deploy/backup-blackbird/docker-compose.override.yml`
+  - `APP_DIR=/home/blackbird/services/deerflow`
+  - `APP_DOMAIN=deerflow.blackbirdzzzz.art`
+- `scripts/deploy_production.sh` defaults to:
+  - `DEPLOY_TEMPLATE_DIR=deploy/production`
+  - `COMPOSE_FILES=docker-compose.production.yml`
+- `Build Production Images` must keep publishing both `linux/amd64` and `linux/arm64` because production is on ARM64 `linuxvm`.
 - `scripts/deploy_production.sh` must restart `nginx` after `docker compose up -d --remove-orphans`.
 - That restart is required because `nginx` can keep a stale Docker upstream IP and otherwise `/health` may return `502` after a rollout.
 - GitHub deploy uses `rsync --delete`, so deploy-only files must be committed in the repo, not left only on the host.
@@ -44,11 +49,12 @@ scripts/trigger_production_deploy.sh
 
 ## Do Not Do These Things
 
-- Do not deploy to `linuxvm`.
+- Do not use `backup-blackbird` or `e1.chiasegpu.vn:44518` as the current production target.
 - Do not dispatch `Deploy Production` before `Build Production Images` is green for the same SHA.
-- Do not remove `deploy/backup-blackbird/` files from the repo.
+- Do not force the deploy workflows to require `x64` while production is on `linuxvm`.
+- Do not remove `deploy/production/` files from the repo.
 - Do not remove the `nginx` restart from `scripts/deploy_production.sh`.
-- Do not change GitHub production vars back to the old host paths.
+- Do not change GitHub production vars back to the stale host paths.
 
 ## If You Need To Roll Back
 

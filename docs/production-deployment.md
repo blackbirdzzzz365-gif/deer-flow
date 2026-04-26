@@ -1,24 +1,28 @@
 # Production Deployment
 
+This is the single canonical referral file for production, deploy, and post-coding release work on DeerFlow.
+If an agent needs one file to understand how DeerFlow must be deployed today, use this file.
+
 ## Current Production Truth
 
 - Project: `deer-flow`
 - GitHub repo: `blackbirdzzzz365-gif/deer-flow`
-- Production runtime host: `backup-blackbird`
-- Production SSH: `ssh -p 44518 ubuntu@e1.chiasegpu.vn`
-- Production app dir: `/home/ubuntu/services/deerflow`
-- Production env file: `/home/ubuntu/services/deerflow/.env`
+- Production runtime host: `linuxvm` (`openclawlinus`)
+- Production SSH: `ssh linuxvm`
+- Production app dir: `/home/blackbird/services/deerflow`
+- Production env file: `/home/blackbird/services/deerflow/.env`
 - Canonical domain: `deerflow.blackbirdzzzz.art`
 - Canonical public healthcheck: `https://deerflow.blackbirdzzzz.art/health`
 - Local host healthcheck: `http://127.0.0.1:32026/health`
-- GitHub runner label: `backup-blackbird-primary`
+- GitHub runner label: `linuxvm-primary`
+- GitHub runner name: `deerflow-linuxvm-primary`
 - GitHub Actions vars:
-  - `PRODUCTION_APP_DIR=/home/ubuntu/services/deerflow`
+  - `PRODUCTION_APP_DIR=/home/blackbird/services/deerflow`
   - `PRODUCTION_APP_DOMAIN=deerflow.blackbirdzzzz.art`
   - `PRODUCTION_HEALTHCHECK_URL=https://deerflow.blackbirdzzzz.art/health`
-  - `PRODUCTION_RUNNER_LABEL=backup-blackbird-primary`
+  - `PRODUCTION_RUNNER_LABEL=linuxvm-primary`
 
-Production no longer runs on `linuxvm`. `linuxvm` was drained on `2026-04-18` to free disk.
+As of `2026-04-26`, `ssh -p 44518 ubuntu@e1.chiasegpu.vn` is not a working SSH path and `backup-blackbird-primary` is not the production runner. Treat any doc or note that says otherwise as stale.
 
 ## Deploy Mode
 
@@ -30,6 +34,7 @@ Production deploys are tied to GitHub `main` and GHCR SHA-tagged images.
 - Rollback workflow: `.github/workflows/rollback-production.yml`
 - Build workflow: `Build Production Images`
 - Quality gate: `CI`
+- Runtime architecture: `linux/arm64`
 
 Do not treat local source on the operator machine or on the host as the deploy source of truth. The deploy source of truth is:
 
@@ -37,43 +42,43 @@ Do not treat local source on the operator machine or on the host as the deploy s
 2. GHCR images tagged with that exact SHA
 3. `Deploy Production` GitHub workflow
 
+Because production runs on `linuxvm`, the image build must continue publishing both `linux/amd64` and `linux/arm64`.
+
 ## Server Env And Templates
 
-The production host `.env` must follow the backup-blackbird variant, not the old linuxvm layout.
+The production host `.env` follows the `linuxvm` layout. `scripts/deploy_production.sh` defaults to `deploy/production` and `docker-compose.production.yml`, so those values only need to be overridden if the deploy topology changes.
 
 Core values:
 
 ```env
-APP_DIR=/home/ubuntu/services/deerflow
+APP_DIR=/home/blackbird/services/deerflow
 APP_PORT=32026
 APP_DOMAIN=deerflow.blackbirdzzzz.art
 PRODUCTION_HEALTHCHECK_URL=https://deerflow.blackbirdzzzz.art/health
 LOCAL_HEALTHCHECK_URL=http://127.0.0.1:32026/health
-HOST_HOME=/home/ubuntu
-DEER_FLOW_HOME=/home/ubuntu/services/deerflow/runtime
-DEER_FLOW_CONFIG_PATH=/home/ubuntu/services/deerflow/config/config.yaml
-DEER_FLOW_EXTENSIONS_CONFIG_PATH=/home/ubuntu/services/deerflow/config/extensions_config.json
+HOST_HOME=/home/blackbird
+DEER_FLOW_HOME=/home/blackbird/services/deerflow/runtime
+DEER_FLOW_CONFIG_PATH=/home/blackbird/services/deerflow/config/config.yaml
+DEER_FLOW_EXTENSIONS_CONFIG_PATH=/home/blackbird/services/deerflow/config/extensions_config.json
 DEER_FLOW_DOCKER_SOCKET=/var/run/docker.sock
 IMAGE_REPO_BACKEND=ghcr.io/blackbirdzzzz365-gif/deer-flow-backend
 IMAGE_REPO_FRONTEND=ghcr.io/blackbirdzzzz365-gif/deer-flow-frontend
-GATEWAY_WORKERS=2
-LANGGRAPH_JOBS_PER_WORKER=4
+GATEWAY_WORKERS=4
+LANGGRAPH_JOBS_PER_WORKER=10
 LANGGRAPH_ALLOW_BLOCKING=1
-DEPLOY_TEMPLATE_DIR=deploy/backup-blackbird
-COMPOSE_FILES=docker-compose.production.yml,deploy/backup-blackbird/docker-compose.override.yml
+DEPLOY_TEMPLATE_DIR=deploy/production
+COMPOSE_FILES=docker-compose.production.yml
 REQUIRE_PUBLIC_HEALTHCHECK=1
-OPENCLAW_SHARED_ENV_FILE=/home/ubuntu/.openclaw/.env
+OPENCLAW_SHARED_ENV_FILE=/home/blackbird/.openclaw/.env
 NINEROUTER_API_KEY=...
 ```
 
 Tracked templates and assets that production depends on:
 
-- `deploy/backup-blackbird/app.env.example`
-- `deploy/backup-blackbird/config.template.yaml`
-- `deploy/backup-blackbird/extensions_config.template.json`
-- `deploy/backup-blackbird/docker-compose.override.yml`
-- `deploy/backup-blackbird/mcp/`
-- `deploy/backup-blackbird/agents/`
+- `deploy/production/app.env.example`
+- `deploy/production/config.template.yaml`
+- `deploy/production/extensions_config.template.json`
+- `deploy/production/mcp/`
 - `scripts/deploy_production.sh`
 - `scripts/rollback_production.sh`
 - `scripts/healthcheck_production.sh`
@@ -86,8 +91,9 @@ Tracked templates and assets that production depends on:
 4. Trigger `Deploy Production`.
 5. Verify:
    - `https://deerflow.blackbirdzzzz.art/health`
-   - `http://127.0.0.1:32026/health` on `backup-blackbird`
-   - `/home/ubuntu/services/deerflow/.deploy/production-state.env`
+   - `ssh linuxvm 'curl -fsS http://127.0.0.1:32026/health'`
+   - `ssh linuxvm 'sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'`
+   - `ssh linuxvm '~/bin/prod-audit'`
 6. If deploy must be undone, use `Roll Back Production`.
 
 After those three checks pass, run the standard smoke pack:
@@ -103,8 +109,9 @@ gh run list --repo blackbirdzzzz365-gif/deer-flow --limit 10
 gh workflow run "Deploy Production" --repo blackbirdzzzz365-gif/deer-flow --ref main
 gh run watch <deploy-run-id> --repo blackbirdzzzz365-gif/deer-flow --exit-status
 curl -fsS https://deerflow.blackbirdzzzz.art/health
-ssh -p 44518 ubuntu@e1.chiasegpu.vn 'curl -fsS http://127.0.0.1:32026/health'
-ssh -p 44518 ubuntu@e1.chiasegpu.vn 'sed -n "1,20p" /home/ubuntu/services/deerflow/.deploy/production-state.env'
+ssh linuxvm 'curl -fsS http://127.0.0.1:32026/health'
+ssh linuxvm 'sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'
+ssh linuxvm '~/bin/prod-audit'
 ```
 
 If you want one guarded command that waits for `CI` and `Build Production Images`
@@ -139,14 +146,15 @@ The `nginx` restart is intentional and required. Without it, `nginx:alpine` can 
 
 ## Critical Rules
 
-- Do not deploy DeerFlow production to `linuxvm`.
-- Do not revert `PRODUCTION_RUNNER_LABEL` to `linuxvm-primary`.
-- Do not revert `PRODUCTION_APP_DIR` to `/home/blackbird/services/deerflow`.
+- Do not use `ssh -p 44518 ubuntu@e1.chiasegpu.vn` as the current production path.
+- Keep `PRODUCTION_RUNNER_LABEL=linuxvm-primary`.
+- Keep `PRODUCTION_APP_DIR=/home/blackbird/services/deerflow`.
 - Do not trigger `Deploy Production` before `Build Production Images` succeeds for the same SHA.
-- Do not keep backup-blackbird-only files only on the host. GitHub deploy uses `rsync --delete`, so anything not tracked in the repo can be deleted on the next deploy.
+- Do not force `x64` in self-hosted production workflows while production is on `linuxvm`.
+- Keep production templates under `deploy/production/` tracked in the repo. GitHub deploy uses `rsync --delete`, so anything not tracked in the repo can be deleted on the next deploy.
 - Do not remove the `nginx` restart from `scripts/deploy_production.sh` unless the upstream routing model changes and is revalidated.
 - Keep `deerflow.blackbirdzzzz.art` as the canonical public URL.
-- Keep production mounted to `/home/ubuntu/.codex`, `/home/ubuntu/.claude`, and `/home/ubuntu/.openclaw/.env`.
+- Keep production mounted to `/home/blackbird/.codex`, `/home/blackbird/.claude`, and `/home/blackbird/.openclaw/.env`.
 
 ## Rollback
 
@@ -160,8 +168,8 @@ gh workflow run "Roll Back Production" --repo blackbirdzzzz365-gif/deer-flow -f 
 Or directly on the host if necessary:
 
 ```bash
-ssh -p 44518 ubuntu@e1.chiasegpu.vn '
-  cd /home/ubuntu/services/deerflow &&
+ssh linuxvm '
+  cd /home/blackbird/services/deerflow &&
   scripts/rollback_production.sh
 '
 ```

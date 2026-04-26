@@ -13,6 +13,10 @@ FROM python:3.12-slim-bookworm AS builder
 ARG NODE_MAJOR=22
 ARG APT_MIRROR
 ARG UV_INDEX_URL
+ARG OPENHANDS_VERSION=1.14.0
+ARG FEYNMAN_VERSION=0.2.40
+
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Optionally override apt mirror for restricted networks (e.g. APT_MIRROR=mirrors.aliyun.com)
 RUN if [ -n "${APT_MIRROR}" ]; then \
@@ -46,6 +50,12 @@ COPY backend ./backend
 RUN --mount=type=cache,target=/root/.cache/uv \
     sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} uv sync"
 
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv tool install "openhands==${OPENHANDS_VERSION}" --python 3.12 \
+    && curl -fsSL https://feynman.is/install | FEYNMAN_INSTALL_SKIP_PATH_UPDATE=1 bash -s -- "${FEYNMAN_VERSION}" \
+    && /root/.local/bin/openhands --version \
+    && /root/.local/bin/feynman --version
+
 # ── Stage 2: Dev ──────────────────────────────────────────────────────────────
 # Retains compiler toolchain from builder so startup-time `uv sync` can build
 # source distributions in development containers.
@@ -62,6 +72,8 @@ CMD ["sh", "-c", "cd backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app 
 # Clean image without build-essential — reduces size (~200 MB) and attack surface.
 FROM python:3.12-slim-bookworm
 
+ENV PATH="/root/.local/bin:${PATH}"
+
 # Copy Node.js runtime from builder (provides npx for MCP servers)
 COPY --from=builder /usr/bin/node /usr/bin/node
 COPY --from=builder /usr/lib/node_modules /usr/lib/node_modules
@@ -76,6 +88,9 @@ COPY --from=uv-source /uv /uvx /usr/local/bin/
 
 # Set working directory
 WORKDIR /app
+
+# Copy standalone CLI runtimes installed in the builder stage.
+COPY --from=builder /root/.local /root/.local
 
 # Copy backend with pre-built virtualenv from builder
 COPY --from=builder /app/backend ./backend

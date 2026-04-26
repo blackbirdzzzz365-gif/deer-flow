@@ -133,5 +133,24 @@ def get_available_tools(
     except Exception as e:
         logger.warning(f"Failed to load ACP tool: {e}")
 
-    logger.info(f"Total tools loaded: {len(loaded_tools)}, built-in tools: {len(builtin_tools)}, MCP tools: {len(mcp_tools)}, ACP tools: {len(acp_tools)}")
-    return loaded_tools + builtin_tools + mcp_tools + acp_tools
+    delegated_runtime_tools: list[BaseTool] = []
+    try:
+        from deerflow.config.feynman_config import get_feynman_config
+        from deerflow.tools.builtins.invoke_feynman_tool import build_invoke_feynman_tool
+
+        feynman_config = get_feynman_config()
+        if feynman_config.enabled:
+            delegated_runtime_tools.append(build_invoke_feynman_tool(feynman_config))
+            logger.info("Including invoke_feynman tool")
+    except Exception as e:
+        logger.warning(f"Failed to load delegated runtime tool(s): {e}")
+
+    logger.info(
+        "Total tools loaded: %d, built-in tools: %d, MCP tools: %d, ACP tools: %d, delegated runtime tools: %d",
+        len(loaded_tools),
+        len(builtin_tools),
+        len(mcp_tools),
+        len(acp_tools),
+        len(delegated_runtime_tools),
+    )
+    return loaded_tools + builtin_tools + mcp_tools + acp_tools + delegated_runtime_tools

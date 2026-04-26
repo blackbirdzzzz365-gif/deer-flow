@@ -34,6 +34,10 @@ import { SubtaskCard } from "./subtask-card";
 export const MESSAGE_LIST_DEFAULT_PADDING_BOTTOM = 160;
 export const MESSAGE_LIST_FOLLOWUPS_EXTRA_PADDING_BOTTOM = 80;
 
+function isDelegatedRuntimeTool(toolName: string) {
+  return toolName === "invoke_feynman" || toolName === "invoke_acp_agent";
+}
+
 export function MessageList({
   className,
   threadId,
@@ -129,6 +133,35 @@ export function MessageList({
                       description: toolCall.args.description,
                       prompt: toolCall.args.prompt,
                       status: "in_progress",
+                      runtime: "subagent",
+                    };
+                    updateSubtask(task);
+                    tasks.add(task);
+                  } else if (toolCall.name === "invoke_feynman") {
+                    const task: Subtask = {
+                      id: toolCall.id!,
+                      subagent_type: "feynman",
+                      runtime: "feynman",
+                      description: toolCall.args.description,
+                      prompt: toolCall.args.prompt,
+                      status: "in_progress",
+                    };
+                    updateSubtask(task);
+                    tasks.add(task);
+                  } else if (toolCall.name === "invoke_acp_agent") {
+                    const runtimeKind =
+                      toolCall.args.agent === "openhands"
+                        ? "openhands"
+                        : "acp";
+                    const task: Subtask = {
+                      id: toolCall.id!,
+                      subagent_type: runtimeKind,
+                      runtime: runtimeKind,
+                      description:
+                        toolCall.args.description ??
+                        `ACP: ${toolCall.args.agent}`,
+                      prompt: toolCall.args.prompt,
+                      status: "in_progress",
                     };
                     updateSubtask(task);
                     tasks.add(task);
@@ -153,6 +186,27 @@ export function MessageList({
                       error: result.split("Task failed.")[1]?.trim(),
                     });
                   } else if (result.startsWith("Task timed out")) {
+                    updateSubtask({
+                      id: taskId,
+                      status: "failed",
+                      error: result,
+                    });
+                  } else if (
+                    result.includes("completed.\n\nSummary:") ||
+                    result.startsWith("Feynman completed.") ||
+                    result.startsWith("OpenHands completed.") ||
+                    result.startsWith("acp completed.")
+                  ) {
+                    updateSubtask({
+                      id: taskId,
+                      status: "completed",
+                      result,
+                    });
+                  } else if (
+                    result.startsWith("Feynman failed.") ||
+                    result.startsWith("OpenHands failed.") ||
+                    result.includes(" failed.\n\nReason:")
+                  ) {
                     updateSubtask({
                       id: taskId,
                       status: "failed",
@@ -189,7 +243,11 @@ export function MessageList({
                 </div>,
               );
               const taskIds = message.tool_calls
-                ?.filter((toolCall) => toolCall.name === "task")
+                ?.filter(
+                  (toolCall) =>
+                    toolCall.name === "task" ||
+                    isDelegatedRuntimeTool(toolCall.name),
+                )
                 .map((toolCall) => toolCall.id);
               for (const taskId of taskIds ?? []) {
                 results.push(

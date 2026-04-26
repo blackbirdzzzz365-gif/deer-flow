@@ -4,7 +4,7 @@ import type { Subtask } from "./types";
 
 export interface SubtaskContextValue {
   tasks: Record<string, Subtask>;
-  setTasks: (tasks: Record<string, Subtask>) => void;
+  setTasks: React.Dispatch<React.SetStateAction<Record<string, Subtask>>>;
 }
 
 export const SubtaskContext = createContext<SubtaskContextValue>({
@@ -39,15 +39,18 @@ export function useSubtask(id: string) {
 }
 
 export function useUpdateSubtask() {
-  const { tasks, setTasks } = useSubtaskContext();
+  const { setTasks } = useSubtaskContext();
   const updateSubtask = useCallback(
     (task: Partial<Subtask> & { id: string }) => {
-      tasks[task.id] = { ...tasks[task.id], ...task } as Subtask;
-      if (task.latestMessage) {
-        setTasks({ ...tasks });
-      }
+      setTasks((prev) => ({
+        ...prev,
+        [task.id]: {
+          ...prev[task.id],
+          ...task,
+        } as Subtask,
+      }));
     },
-    [tasks, setTasks],
+    [setTasks],
   );
   return updateSubtask;
 }

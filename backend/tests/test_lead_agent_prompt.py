@@ -163,3 +163,39 @@ def test_warm_enabled_skills_cache_logs_on_timeout(monkeypatch, caplog):
 
     assert warmed is False
     assert "Timed out waiting" in caplog.text
+
+
+def test_build_delegated_runtime_section_mentions_feynman_and_openhands(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.config.feynman_config.get_feynman_config",
+        lambda: SimpleNamespace(enabled=True),
+    )
+    monkeypatch.setattr(
+        "deerflow.config.acp_config.get_acp_agents",
+        lambda: {"openhands": SimpleNamespace(description="OpenHands")},
+    )
+
+    section = prompt_module._build_delegated_runtime_section()
+
+    assert "invoke_feynman" in section
+    assert 'invoke_acp_agent(agent="openhands"' in section
+    assert "seed_paths" in section
+
+
+def test_apply_prompt_template_includes_delegated_runtime_guidance(monkeypatch):
+    config = SimpleNamespace(
+        sandbox=SimpleNamespace(mounts=[]),
+        skills=SimpleNamespace(container_path="/mnt/skills"),
+    )
+    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
+    monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda: "")
+    monkeypatch.setattr(prompt_module, "_build_acp_section", lambda: "")
+    monkeypatch.setattr(prompt_module, "_build_delegated_runtime_section", lambda: "\n**Delegated Runtime Routing:**\n- use invoke_feynman")
+    monkeypatch.setattr(prompt_module, "_get_memory_context", lambda agent_name=None: "")
+    monkeypatch.setattr(prompt_module, "get_agent_soul", lambda agent_name=None: "")
+
+    prompt = prompt_module.apply_prompt_template()
+
+    assert "Delegated Runtime Routing" in prompt
+    assert "invoke_feynman" in prompt
