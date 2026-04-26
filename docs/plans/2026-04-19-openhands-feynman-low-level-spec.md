@@ -835,14 +835,15 @@ Required Dockerfile additions:
   - `ARG OPENHANDS_VERSION=1.14.0`
   - `ARG FEYNMAN_VERSION=0.2.40`
 - install OpenHands with `uv tool install --python 3.12 "openhands==${OPENHANDS_VERSION}"`
-- install Feynman using its official installer at build time
+- install Feynman from the official npm package with `npm install -g "@companion-ai/feynman@${FEYNMAN_VERSION}"`
 - fail the build if `openhands` or `feynman` are not executable after install
 - ensure `/root/.local/bin` is on `PATH`
 
-The runtime stage must copy any runtime state needed by the installed CLIs, not just the launcher symlink. At minimum copy:
+The Feynman native release assets are currently `linux-x64` only; production is `linux/arm64`, so the image must not depend on the native tarball installer for V1. The runtime stage must copy any runtime state needed by the installed CLIs, not just the launcher symlink. At minimum copy:
 
 - `/root/.local`
-- any Feynman runtime home created during install, if distinct from `/root/.local`
+- `/usr/lib/node_modules/@companion-ai/feynman`
+- `/usr/bin/feynman` or an equivalent symlink into the copied global npm package
 
 ### 7.2 Production mounts
 
@@ -884,7 +885,7 @@ Do not put `OPENHANDS_VERSION` or `FEYNMAN_VERSION` into runtime `.env`. Those v
 
 Minimal validation:
 
-- `docker compose exec -T langgraph openhands --help >/dev/null`
+- `docker compose exec -T langgraph openhands acp --help >/dev/null`
 - `docker compose exec -T langgraph feynman --help >/dev/null`
 
 If either command fails, the deploy script must exit non-zero before writing the new production state file.

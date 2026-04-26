@@ -52,9 +52,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv tool install "openhands==${OPENHANDS_VERSION}" --python 3.12 \
-    && curl -fsSL https://feynman.is/install | FEYNMAN_INSTALL_SKIP_PATH_UPDATE=1 bash -s -- "${FEYNMAN_VERSION}" \
+    && npm install -g "@companion-ai/feynman@${FEYNMAN_VERSION}" \
     && /root/.local/bin/openhands --version \
-    && /root/.local/bin/feynman --version
+    && feynman --version
 
 # ── Stage 2: Dev ──────────────────────────────────────────────────────────────
 # Retains compiler toolchain from builder so startup-time `uv sync` can build
@@ -78,7 +78,9 @@ ENV PATH="/root/.local/bin:${PATH}"
 COPY --from=builder /usr/bin/node /usr/bin/node
 COPY --from=builder /usr/lib/node_modules /usr/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm \
-    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx \
+    && ln -s ../lib/node_modules/@companion-ai/feynman/bin/feynman.js /usr/bin/feynman \
+    && ln -s /root/.local/share/uv/tools/openhands/bin/openhands /usr/bin/openhands
 
 # Install Docker CLI (for DooD: allows starting sandbox containers via host Docker socket)
 COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
@@ -89,7 +91,7 @@ COPY --from=uv-source /uv /uvx /usr/local/bin/
 # Set working directory
 WORKDIR /app
 
-# Copy standalone CLI runtimes installed in the builder stage.
+# Copy CLI runtimes installed in the builder stage.
 COPY --from=builder /root/.local /root/.local
 
 # Copy backend with pre-built virtualenv from builder

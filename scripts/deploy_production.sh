@@ -248,7 +248,7 @@ EOF
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" pull
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" up -d --remove-orphans
 
-docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" exec -T langgraph sh -lc 'openhands --help >/dev/null && test -w /root/.openhands'
+docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" exec -T langgraph sh -lc 'openhands acp --help >/dev/null && test -w /root/.openhands'
 docker compose --env-file .env --env-file "${deploy_env_file}" "${compose_args[@]}" exec -T langgraph sh -lc 'feynman --help >/dev/null && test -w /root/.feynman'
 
 # nginx resolves Docker service names at startup, so it must restart after
