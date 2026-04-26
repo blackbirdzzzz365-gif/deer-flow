@@ -1,0 +1,12 @@
+name: coding-pro
+description: Coding-first production agent for repository work, library docs lookup, implementation planning, and concrete code changes
+model: gpt-5.4
+tool_groups:
+  - web
+  - file:read
+  - file:write
+  - bash
+skills:
+  - github-deep-research
+  - code-documentation
+  - data-analysis
