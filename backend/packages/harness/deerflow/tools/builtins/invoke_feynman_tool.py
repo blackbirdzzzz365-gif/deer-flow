@@ -306,16 +306,16 @@ def build_invoke_feynman_tool(feynman_config: FeynmanConfig) -> BaseTool:
         capture_task = asyncio.create_task(_capture_process_output(process, run_paths.log_file))
         try:
             await asyncio.wait_for(asyncio.shield(capture_task), timeout=feynman_config.timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.terminate()
             try:
                 await asyncio.wait_for(process.wait(), timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 await process.wait()
             try:
                 await asyncio.wait_for(asyncio.shield(capture_task), timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 capture_task.cancel()
             except Exception:
                 logger.debug("Failed to finish reading Feynman output after timeout", exc_info=True)
