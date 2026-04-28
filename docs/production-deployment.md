@@ -7,22 +7,23 @@ If an agent needs one file to understand how DeerFlow must be deployed today, us
 
 - Project: `deer-flow`
 - GitHub repo: `blackbirdzzzz365-gif/deer-flow`
-- Production runtime host: `linuxvm` (`openclawlinus`)
-- Production SSH: `ssh linuxvm`
+- Production runtime role: `compute-primary`
+- Production SSH: `ssh -p 57116 ubuntu@e1.chiasegpu.vn`
+- Production host: `serverblackbird`
 - Production app dir: `/home/blackbird/services/deerflow`
 - Production env file: `/home/blackbird/services/deerflow/.env`
 - Canonical domain: `deerflow.blackbirdzzzz.art`
 - Canonical public healthcheck: `https://deerflow.blackbirdzzzz.art/health`
 - Local host healthcheck: `http://127.0.0.1:32026/health`
-- GitHub runner label: `linuxvm-primary`
-- GitHub runner name: `deerflow-linuxvm-primary`
+- GitHub runner label: `compute-primary`
+- GitHub runner name: `deerflow-compute-primary`
 - GitHub Actions vars:
   - `PRODUCTION_APP_DIR=/home/blackbird/services/deerflow`
   - `PRODUCTION_APP_DOMAIN=deerflow.blackbirdzzzz.art`
   - `PRODUCTION_HEALTHCHECK_URL=https://deerflow.blackbirdzzzz.art/health`
-  - `PRODUCTION_RUNNER_LABEL=linuxvm-primary`
+  - `PRODUCTION_RUNNER_LABEL=compute-primary`
 
-As of `2026-04-26`, `ssh -p 44518 ubuntu@e1.chiasegpu.vn` is not a working SSH path and `backup-blackbird-primary` is not the production runner. Treat any doc or note that says otherwise as stale.
+As of `2026-04-26`, DeerFlow was cut over to the dedicated compute tunnel on `compute-primary`. `linuxvm-primary` and `backup-blackbird-primary` are not the production runner for DeerFlow. Treat any doc or note that says otherwise as stale.
 
 ## Deploy Mode
 
@@ -34,7 +35,7 @@ Production deploys are tied to GitHub `main` and GHCR SHA-tagged images.
 - Rollback workflow: `.github/workflows/rollback-production.yml`
 - Build workflow: `Build Production Images`
 - Quality gate: `CI`
-- Runtime architecture: `linux/arm64`
+- Runtime architecture: `linux/amd64` on the current `compute-primary` host (`x86_64`)
 
 Do not treat local source on the operator machine or on the host as the deploy source of truth. The deploy source of truth is:
 
@@ -42,11 +43,11 @@ Do not treat local source on the operator machine or on the host as the deploy s
 2. GHCR images tagged with that exact SHA
 3. `Deploy Production` GitHub workflow
 
-Because production runs on `linuxvm`, the image build must continue publishing both `linux/amd64` and `linux/arm64`.
+The image build must continue publishing both `linux/amd64` and `linux/arm64`; current production uses `linux/amd64`, and replacement compute capacity may differ.
 
 ## Server Env And Templates
 
-The production host `.env` follows the `linuxvm` layout. `scripts/deploy_production.sh` defaults to `deploy/production` and `docker-compose.production.yml`, so those values only need to be overridden if the deploy topology changes.
+The production host `.env` follows the compute-primary layout. `scripts/deploy_production.sh` defaults to `deploy/production` and `docker-compose.production.yml`, so those values only need to be overridden if the deploy topology changes.
 
 Core values:
 
@@ -91,9 +92,9 @@ Tracked templates and assets that production depends on:
 4. Trigger `Deploy Production`.
 5. Verify:
    - `https://deerflow.blackbirdzzzz.art/health`
-   - `ssh linuxvm 'curl -fsS http://127.0.0.1:32026/health'`
-   - `ssh linuxvm 'sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'`
-   - `ssh linuxvm '~/bin/prod-audit'`
+   - `ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird curl -fsS http://127.0.0.1:32026/health'`
+   - `ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'`
+   - `ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird /home/blackbird/bin/prod-audit'`
 6. If deploy must be undone, use `Roll Back Production`.
 
 After those three checks pass, run the standard smoke pack:
@@ -109,9 +110,9 @@ gh run list --repo blackbirdzzzz365-gif/deer-flow --limit 10
 gh workflow run "Deploy Production" --repo blackbirdzzzz365-gif/deer-flow --ref main
 gh run watch <deploy-run-id> --repo blackbirdzzzz365-gif/deer-flow --exit-status
 curl -fsS https://deerflow.blackbirdzzzz.art/health
-ssh linuxvm 'curl -fsS http://127.0.0.1:32026/health'
-ssh linuxvm 'sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'
-ssh linuxvm '~/bin/prod-audit'
+ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird curl -fsS http://127.0.0.1:32026/health'
+ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird sed -n "1,20p" /home/blackbird/services/deerflow/.deploy/production-state.env'
+ssh -p 57116 ubuntu@e1.chiasegpu.vn 'sudo -u blackbird /home/blackbird/bin/prod-audit'
 ```
 
 If you want one guarded command that waits for `CI` and `Build Production Images`
@@ -147,10 +148,10 @@ The `nginx` restart is intentional and required. Without it, `nginx:alpine` can 
 ## Critical Rules
 
 - Do not use `ssh -p 44518 ubuntu@e1.chiasegpu.vn` as the current production path.
-- Keep `PRODUCTION_RUNNER_LABEL=linuxvm-primary`.
+- Keep `PRODUCTION_RUNNER_LABEL=compute-primary`.
 - Keep `PRODUCTION_APP_DIR=/home/blackbird/services/deerflow`.
 - Do not trigger `Deploy Production` before `Build Production Images` succeeds for the same SHA.
-- Do not force `x64` in self-hosted production workflows while production is on `linuxvm`.
+- Do not change self-hosted production workflows or variables back to `linuxvm-primary`.
 - Keep production templates under `deploy/production/` tracked in the repo. GitHub deploy uses `rsync --delete`, so anything not tracked in the repo can be deleted on the next deploy.
 - Do not remove the `nginx` restart from `scripts/deploy_production.sh` unless the upstream routing model changes and is revalidated.
 - Keep `deerflow.blackbirdzzzz.art` as the canonical public URL.
@@ -168,7 +169,7 @@ gh workflow run "Roll Back Production" --repo blackbirdzzzz365-gif/deer-flow -f 
 Or directly on the host if necessary:
 
 ```bash
-ssh linuxvm '
+ssh -p 57116 ubuntu@e1.chiasegpu.vn '
   cd /home/blackbird/services/deerflow &&
   scripts/rollback_production.sh
 '
