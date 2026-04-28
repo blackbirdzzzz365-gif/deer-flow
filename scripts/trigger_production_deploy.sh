@@ -13,9 +13,10 @@ DEPLOY_DISCOVERY_TIMEOUT_SECONDS="${DEPLOY_DISCOVERY_TIMEOUT_SECONDS:-180}"
 SKIP_VERIFY="${SKIP_VERIFY:-0}"
 PRODUCTION_HEALTHCHECK_URL="${PRODUCTION_HEALTHCHECK_URL:-https://deerflow.blackbirdzzzz.art/health}"
 PRODUCTION_SSH_TARGET="${PRODUCTION_SSH_TARGET:-ubuntu@e1.chiasegpu.vn}"
-PRODUCTION_SSH_PORT="${PRODUCTION_SSH_PORT:-44518}"
+PRODUCTION_SSH_PORT="${PRODUCTION_SSH_PORT:-57116}"
 PRODUCTION_LOCAL_HEALTHCHECK_URL="${PRODUCTION_LOCAL_HEALTHCHECK_URL:-http://127.0.0.1:32026/health}"
-PRODUCTION_STATE_FILE="${PRODUCTION_STATE_FILE:-/home/ubuntu/services/deerflow/.deploy/production-state.env}"
+PRODUCTION_STATE_FILE="${PRODUCTION_STATE_FILE:-/home/blackbird/services/deerflow/.deploy/production-state.env}"
+PRODUCTION_AUDIT_COMMAND="${PRODUCTION_AUDIT_COMMAND:-/home/blackbird/bin/prod-audit}"
 
 resolve_target_sha() {
   if [[ -n "${TARGET_SHA}" ]]; then
@@ -116,7 +117,7 @@ verify_production() {
   echo
   echo "Verifying host-local healthcheck and state file on ${PRODUCTION_SSH_TARGET}"
   ssh -p "${PRODUCTION_SSH_PORT}" "${PRODUCTION_SSH_TARGET}" \
-    "curl -fsS '${PRODUCTION_LOCAL_HEALTHCHECK_URL}' && echo '---' && sed -n '1,20p' '${PRODUCTION_STATE_FILE}'"
+    "sudo -u blackbird curl -fsS '${PRODUCTION_LOCAL_HEALTHCHECK_URL}' && echo '---' && sudo -u blackbird sed -n '1,20p' '${PRODUCTION_STATE_FILE}' && echo '---' && sudo -u blackbird '${PRODUCTION_AUDIT_COMMAND}'"
 }
 
 target_sha="$(resolve_target_sha)"
