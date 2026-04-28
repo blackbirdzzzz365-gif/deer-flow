@@ -42,13 +42,28 @@ export function useUpdateSubtask() {
   const { setTasks } = useSubtaskContext();
   const updateSubtask = useCallback(
     (task: Partial<Subtask> & { id: string }) => {
-      setTasks((prev) => ({
-        ...prev,
-        [task.id]: {
+      setTasks((prev) => {
+        const nextTask = {
           ...prev[task.id],
           ...task,
-        } as Subtask,
-      }));
+        } as Subtask;
+        const currentTask = prev[task.id];
+
+        if (
+          currentTask &&
+          Object.keys(nextTask).length === Object.keys(currentTask).length &&
+          Object.entries(nextTask).every(
+            ([key, value]) => currentTask[key as keyof Subtask] === value,
+          )
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [task.id]: nextTask,
+        };
+      });
     },
     [setTasks],
   );

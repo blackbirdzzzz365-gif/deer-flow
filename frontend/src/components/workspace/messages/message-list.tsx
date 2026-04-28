@@ -1,4 +1,6 @@
+import type { Message } from "@langchain/langgraph-sdk";
 import type { BaseStream } from "@langchain/langgraph-sdk/react";
+import { useEffect, useMemo } from "react";
 
 import {
   Conversation,
@@ -38,6 +40,110 @@ function isDelegatedRuntimeTool(toolName: string) {
   return toolName === "invoke_feynman" || toolName === "invoke_acp_agent";
 }
 
+type SubtaskUpdate = Partial<Subtask> & { id: string };
+
+function collectSubtaskUpdates(messages: Message[]) {
+  const updates: SubtaskUpdate[] = [];
+
+  groupMessages(messages, (group) => {
+    if (group.type !== "assistant:subagent") {
+      return null;
+    }
+
+    for (const message of group.messages) {
+      if (message.type === "ai") {
+        for (const toolCall of message.tool_calls ?? []) {
+          if (toolCall.name === "task") {
+            updates.push({
+              id: toolCall.id!,
+              subagent_type: toolCall.args.subagent_type,
+              description: toolCall.args.description,
+              prompt: toolCall.args.prompt,
+              status: "in_progress",
+              runtime: "subagent",
+            });
+          } else if (toolCall.name === "invoke_feynman") {
+            updates.push({
+              id: toolCall.id!,
+              subagent_type: "feynman",
+              runtime: "feynman",
+              description: toolCall.args.description,
+              prompt: toolCall.args.prompt,
+              status: "in_progress",
+            });
+          } else if (toolCall.name === "invoke_acp_agent") {
+            const runtimeKind =
+              toolCall.args.agent === "openhands" ? "openhands" : "acp";
+            updates.push({
+              id: toolCall.id!,
+              subagent_type: runtimeKind,
+              runtime: runtimeKind,
+              description:
+                toolCall.args.description ?? `ACP: ${toolCall.args.agent}`,
+              prompt: toolCall.args.prompt,
+              status: "in_progress",
+            });
+          }
+        }
+      } else if (message.type === "tool") {
+        const taskId = message.tool_call_id;
+        if (taskId) {
+          const result = extractTextFromMessage(message);
+          if (result.startsWith("Task Succeeded. Result:")) {
+            updates.push({
+              id: taskId,
+              status: "completed",
+              result: result.split("Task Succeeded. Result:")[1]?.trim(),
+            });
+          } else if (result.startsWith("Task failed.")) {
+            updates.push({
+              id: taskId,
+              status: "failed",
+              error: result.split("Task failed.")[1]?.trim(),
+            });
+          } else if (result.startsWith("Task timed out")) {
+            updates.push({
+              id: taskId,
+              status: "failed",
+              error: result,
+            });
+          } else if (
+            result.includes("completed.\n\nSummary:") ||
+            result.startsWith("Feynman completed.") ||
+            result.startsWith("OpenHands completed.") ||
+            result.startsWith("acp completed.")
+          ) {
+            updates.push({
+              id: taskId,
+              status: "completed",
+              result,
+            });
+          } else if (
+            result.startsWith("Feynman failed.") ||
+            result.startsWith("OpenHands failed.") ||
+            result.includes(" failed.\n\nReason:")
+          ) {
+            updates.push({
+              id: taskId,
+              status: "failed",
+              error: result,
+            });
+          } else {
+            updates.push({
+              id: taskId,
+              status: "in_progress",
+            });
+          }
+        }
+      }
+    }
+
+    return null;
+  });
+
+  return updates;
+}
+
 export function MessageList({
   className,
   threadId,
@@ -55,6 +161,17 @@ export function MessageList({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(thread.isLoading);
   const updateSubtask = useUpdateSubtask();
   const messages = thread.messages;
+  const subtaskUpdates = useMemo(
+    () => collectSubtaskUpdates(messages),
+    [messages],
+  );
+
+  useEffect(() => {
+    for (const update of subtaskUpdates) {
+      updateSubtask(update);
+    }
+  }, [subtaskUpdates, updateSubtask]);
+
   if (thread.isThreadLoading && messages.length === 0) {
     return <MessageListSkeleton />;
   }
@@ -135,7 +252,6 @@ export function MessageList({
                       status: "in_progress",
                       runtime: "subagent",
                     };
-                    updateSubtask(task);
                     tasks.add(task);
                   } else if (toolCall.name === "invoke_feynman") {
                     const task: Subtask = {
@@ -146,7 +262,6 @@ export function MessageList({
                       prompt: toolCall.args.prompt,
                       status: "in_progress",
                     };
-                    updateSubtask(task);
                     tasks.add(task);
                   } else if (toolCall.name === "invoke_acp_agent") {
                     const runtimeKind =
@@ -163,60 +278,7 @@ export function MessageList({
                       prompt: toolCall.args.prompt,
                       status: "in_progress",
                     };
-                    updateSubtask(task);
                     tasks.add(task);
-                  }
-                }
-              } else if (message.type === "tool") {
-                const taskId = message.tool_call_id;
-                if (taskId) {
-                  const result = extractTextFromMessage(message);
-                  if (result.startsWith("Task Succeeded. Result:")) {
-                    updateSubtask({
-                      id: taskId,
-                      status: "completed",
-                      result: result
-                        .split("Task Succeeded. Result:")[1]
-                        ?.trim(),
-                    });
-                  } else if (result.startsWith("Task failed.")) {
-                    updateSubtask({
-                      id: taskId,
-                      status: "failed",
-                      error: result.split("Task failed.")[1]?.trim(),
-                    });
-                  } else if (result.startsWith("Task timed out")) {
-                    updateSubtask({
-                      id: taskId,
-                      status: "failed",
-                      error: result,
-                    });
-                  } else if (
-                    result.includes("completed.\n\nSummary:") ||
-                    result.startsWith("Feynman completed.") ||
-                    result.startsWith("OpenHands completed.") ||
-                    result.startsWith("acp completed.")
-                  ) {
-                    updateSubtask({
-                      id: taskId,
-                      status: "completed",
-                      result,
-                    });
-                  } else if (
-                    result.startsWith("Feynman failed.") ||
-                    result.startsWith("OpenHands failed.") ||
-                    result.includes(" failed.\n\nReason:")
-                  ) {
-                    updateSubtask({
-                      id: taskId,
-                      status: "failed",
-                      error: result,
-                    });
-                  } else {
-                    updateSubtask({
-                      id: taskId,
-                      status: "in_progress",
-                    });
                   }
                 }
               }
