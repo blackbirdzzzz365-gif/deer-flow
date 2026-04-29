@@ -1,7 +1,7 @@
 # Backup-Blackbird Migration Checklist
 
-Historical note as of `2026-04-26`: this document is an attempted migration runbook, not the current production truth.
-Canonical production is on `linuxvm`, the public domain `deerflow.blackbirdzzzz.art` is routed there, and `ssh -p 44518 ubuntu@e1.chiasegpu.vn` is not a working production SSH path.
+Historical note as of `2026-04-29`: this document is an archival attempted migration runbook, not the current production truth.
+Canonical DeerFlow production is on `compute-primary`, the public domain `deerflow.blackbirdzzzz.art` is routed through the compute tunnel, and `ssh -p 44518 ubuntu@e1.chiasegpu.vn` is not a working production SSH path.
 Use `docs/production-deployment.md` for current deploy and rollback operations.
 
 This runbook moves DeerFlow production from `linuxvm` to `backup-blackbird`

@@ -5,9 +5,11 @@ PRODUCTION_BASE_URL="${PRODUCTION_BASE_URL:-https://deerflow.blackbirdzzzz.art}"
 PUBLIC_HEALTHCHECK_URL="${PUBLIC_HEALTHCHECK_URL:-${PRODUCTION_BASE_URL%/}/health}"
 AGENTS_API_URL="${AGENTS_API_URL:-${PRODUCTION_BASE_URL%/}/api/agents}"
 PRODUCTION_SSH_TARGET="${PRODUCTION_SSH_TARGET:-ubuntu@e1.chiasegpu.vn}"
-PRODUCTION_SSH_PORT="${PRODUCTION_SSH_PORT:-44518}"
+PRODUCTION_SSH_PORT="${PRODUCTION_SSH_PORT:-57116}"
 PRODUCTION_LOCAL_HEALTHCHECK_URL="${PRODUCTION_LOCAL_HEALTHCHECK_URL:-http://127.0.0.1:32026/health}"
-PRODUCTION_STATE_FILE="${PRODUCTION_STATE_FILE:-/home/ubuntu/services/deerflow/.deploy/production-state.env}"
+PRODUCTION_STATE_FILE="${PRODUCTION_STATE_FILE:-/home/blackbird/services/deerflow/.deploy/production-state.env}"
+PRODUCTION_AUDIT_COMMAND="${PRODUCTION_AUDIT_COMMAND:-/home/blackbird/bin/prod-audit}"
+RUN_PRODUCTION_AUDIT="${RUN_PRODUCTION_AUDIT:-1}"
 REQUEST_TIMEOUT_SECONDS="${REQUEST_TIMEOUT_SECONDS:-20}"
 
 section() {
@@ -40,7 +42,7 @@ PY
 
 section "Host-local health and production state"
 ssh -p "${PRODUCTION_SSH_PORT}" "${PRODUCTION_SSH_TARGET}" \
-  "curl --max-time ${REQUEST_TIMEOUT_SECONDS} -fsS '${PRODUCTION_LOCAL_HEALTHCHECK_URL}' && printf '\n---\n' && sed -n '1,20p' '${PRODUCTION_STATE_FILE}'" \
+  "sudo -u blackbird curl --max-time ${REQUEST_TIMEOUT_SECONDS} -fsS '${PRODUCTION_LOCAL_HEALTHCHECK_URL}' && printf '\n---\n' && sudo -u blackbird sed -n '1,20p' '${PRODUCTION_STATE_FILE}'" \
   > "${host_snapshot_file}"
 cat "${host_snapshot_file}"
 echo
@@ -117,6 +119,12 @@ if not isinstance(agents, list):
     raise SystemExit(f"Expected 'agents' to be a list, got: {type(agents).__name__}")
 print(f"Verified agents API shape: {len(agents)} agent(s)")
 PY
+
+if [[ "${RUN_PRODUCTION_AUDIT}" == "1" ]]; then
+  section "Compute production audit"
+  ssh -p "${PRODUCTION_SSH_PORT}" "${PRODUCTION_SSH_TARGET}" \
+    "sudo -u blackbird '${PRODUCTION_AUDIT_COMMAND}'"
+fi
 
 section "Summary"
 echo "Production smoke pack passed."

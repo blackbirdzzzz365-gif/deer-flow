@@ -1,7 +1,7 @@
 # DeerFlow Production Smoke Pack
 
-Use this after a production deploy on `backup-blackbird` to get a repeatable
-runtime verdict before doing deeper manual audits.
+Use this after a production deploy on `compute-primary` to get a repeatable
+runtime verdict before signing off the release.
 
 ## Scope
 
@@ -13,6 +13,7 @@ The standard smoke pack has two layers:
    - deployed SHA and image refs from `production-state.env`
    - homepage marker check
    - `/api/agents` response-shape check
+   - compute production audit
 2. optional Playwright browser checks
    - landing page loads on mobile
    - workspace chat route exposes the mobile sidebar trigger
@@ -32,15 +33,16 @@ scripts/smoke_production.sh
 Default production values are already wired to:
 
 - `https://deerflow.blackbirdzzzz.art`
-- `ssh -p 44518 ubuntu@e1.chiasegpu.vn`
-- `/home/ubuntu/services/deerflow/.deploy/production-state.env`
+- `ssh -p 57116 ubuntu@e1.chiasegpu.vn`
+- `/home/blackbird/services/deerflow/.deploy/production-state.env`
+- `/home/blackbird/bin/prod-audit`
 
 You can override them if production coordinates change:
 
 ```bash
 PRODUCTION_BASE_URL=https://deerflow.blackbirdzzzz.art \
 PRODUCTION_SSH_TARGET=ubuntu@e1.chiasegpu.vn \
-PRODUCTION_SSH_PORT=44518 \
+PRODUCTION_SSH_PORT=57116 \
 scripts/smoke_production.sh
 ```
 
@@ -62,6 +64,7 @@ scripts/smoke_production.sh
     - `Open Workspace` or `Get Started with 2.0`
     - `structured execution` or `researches, codes, and creates`
 - `/api/agents` returns JSON with an `agents` array
+- compute audit prints `COMPUTE_AUDIT=PASS`
 
 ## Optional Playwright Browser Layer
 
